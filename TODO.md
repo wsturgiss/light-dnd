@@ -13,3 +13,8 @@ whole-number scales; see `HANDOFF.md` and `data/dice/`). Ideas to try:
 
 Keep it calm, as Light tools are: short, never in the way, skippable with a tap, and off when the dice animation is.
 Decide what happens with advantage (the dropped d20 doesn't count) and on a d20 with a modifier.
+
+## Before submitting to Light's Tool Library: confirm MEK Dings
+
+MEK Dings ships without a licence file. MEK's letter says "the other ones" are a gift too, but confirm with MEK before
+submitting.

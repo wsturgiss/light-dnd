@@ -24,6 +24,8 @@ import com.wsturgiss.dnd.R
  * They are pixel fonts, so they are sized in *font pixels*, not sp: a size of 4
  * means each font pixel is drawn 4 screen pixels wide. Whole numbers keep every
  * stroke on the screen's pixel grid, which is what makes them look sharp.
+ *
+ * Only IBM VGA has box-drawing characters, so rules and boxes are drawn in Compose.
  */
 object Fonts {
     val Sans = FontFamily(Font(R.font.mek_sans))
