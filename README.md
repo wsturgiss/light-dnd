@@ -29,9 +29,11 @@ on a stat block rolls d20+4. Every roll lands in the log.
   - `model/` — `Dice` (parser + roller, unit-tested), `Character` (5e math),
     `Store` (one JSON file), `Srd` (bundled lists).
   - `ui/` — type (`Type.kt`), page chrome (`Chrome.kt`), rules markup with
-    tappable dice (`Markup.kt`).
+    tappable dice (`Markup.kt`), the dice roll animation (`DiceStage.kt`).
 - `data/build_srd.py` — converts the SRD JSON into `tool/src/main/assets/srd/`.
   The output is checked in: Light's builder only copies `src/main`.
+- `data/dice/` — the dice renderer and the exporter that bakes the roll
+  animation into `tool/src/main/assets/dice/`. See `docs/dice-animation.md`.
 - `sdk/` and the rest of the root — vendored `light-sdk`. Read-only.
 
 ## Build
