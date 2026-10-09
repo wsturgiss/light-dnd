@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>Dice set</title>
+<style>
+ body{background:#000;color:#bbb;font:15px monospace;margin:0;display:flex;justify-content:center}
+ main{width:360px;padding:24px 0;display:grid;grid-template-columns:1fr 1fr;gap:28px 0}
+ p{grid-column:1/-1;margin:0}
+ button{font:inherit;color:#000;background:#bbb;border:0;padding:6px 10px;cursor:pointer}
+ figure{margin:0;text-align:center}
+ img{width:128px;image-rendering:pixelated;cursor:pointer}  /* 64px frame at 6 device px per pixel */
+</style>
+<main>
+ <p>Flat style, at LP3 size. Click a die to replay it.</p>
+ <p>Showing: <b id="mode"></b> <button id="toggle"></button></p>
+</main>
+<script>
+ const main = document.querySelector('main'), dice = [4, 6, 8, 10, 12, 20];
+ const imgs = dice.map(n => {
+   const f = document.createElement('figure');
+   f.innerHTML = `<img><figcaption>d${n}</figcaption>`;
+   main.append(f);
+   return f.querySelector('img');
+ });
+ let hidden = true;
+ function show() {
+   const dir = hidden ? 'set-blank' : 'set', t = Date.now();
+   imgs.forEach((img, k) => img.src = `${dir}/d${dice[k]}.gif?${t}`);
+   document.getElementById('mode').textContent = hidden ? 'number hidden until it lands' : 'number flickers while rolling';
+   document.getElementById('toggle').textContent = hidden ? 'show flicker' : 'hide number';
+ }
+ document.getElementById('toggle').onclick = () => { hidden = !hidden; show(); };
+ imgs.forEach(img => img.onclick = () => img.src = img.src.split('?')[0] + '?' + Date.now());
+ show();
+</script>

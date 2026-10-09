@@ -1,0 +1,47 @@
+<!doctype html><meta charset="utf-8"><title>Dice rolls</title>
+<style>
+ body{background:#000;color:#bbb;font:15px monospace;margin:0;display:flex;justify-content:center}
+ main{width:360px;padding:24px 0;display:grid;gap:14px 0;justify-items:center}
+ p{margin:0;justify-self:start}
+ .bar{display:flex;gap:6px;flex-wrap:wrap}
+ button{font:inherit;color:#bbb;background:#000;border:1px solid #bbb;padding:6px 10px;cursor:pointer}
+ button.on{color:#000;background:#bbb}
+ figure{margin:0;text-align:center}
+ img{image-rendering:pixelated}
+ /* 2 css px per canvas px; the LP3's width is 180 canvas px */
+ .travel img, .travel-top img{width:352px} .follow img{width:264px} img.wide{width:360px !important}
+ #rolls{display:grid;gap:18px;justify-items:center}
+</style>
+<main>
+ <p>Up to 4 of the same die (d100: up to 2). Each number appears as its die lands.</p>
+ <p class="bar" id="cams"></p>
+ <p id="say"></p>
+ <p class="bar" id="dice"></p>
+ <p><button id="go">replay</button> each replay picks a different roll (8 per set)</p>
+ <div id="rolls"></div>
+</main>
+<script>
+ const CAMS = {
+   'follow': ['vary-follow', 'Camera operator, from above: thrown any direction, tipping over their edges as they roll; the camera chases them and settles on them.'],
+   'travel-top': ['vary-top', 'Fixed camera from above: thrown in from the side; bounces come toward you and rolls tip over the edges.'],
+   'travel': ['vary', 'Fixed camera, side-on motion: thrown in from the side, rolling to rest.'],
+ };
+ const DICE = {d4: 4, d6: 4, d8: 4, d10: 4, d12: 4, d20: 4, d100: 2};
+ let cam = 'follow', die = 'd20';
+ const go = () => {
+   const [dir, say] = CAMS[cam], t = Date.now(), box = document.getElementById('rolls');
+   box.className = cam; box.innerHTML = '';
+   document.getElementById('say').textContent = say;
+   for (let c = 1; c <= DICE[die]; c++) {
+     const name = `${c}${die}`, multi = c > 1 || die === 'd100';
+     const f = document.createElement('figure');
+     f.innerHTML = `<img${multi ? ' class="wide"' : ''} src="${dir}/${name}-${Math.floor(Math.random() * 8)}.gif?${t}"><figcaption>${name}${die === 'd100' ? ` (${c * 2} d10s: tens + units${c > 1 ? ', one pair per row' : ''})` : ''}</figcaption>`;
+     box.append(f);
+   }
+   document.querySelectorAll('#cams button').forEach(b => b.classList.toggle('on', b.textContent === cam));
+   document.querySelectorAll('#dice button').forEach(b => b.classList.toggle('on', b.textContent === die));
+ };
+ for (const name in CAMS) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => { cam = name; go(); }; document.getElementById('cams').append(b); }
+ for (const name in DICE) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => { die = name; go(); }; document.getElementById('dice').append(b); }
+ document.getElementById('go').onclick = go; go();
+</script>

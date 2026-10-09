@@ -1,0 +1,10 @@
+[tool]
+id = "com.wsturgiss.dnd"
+label = "D&D"
+versionCode = 1
+versionName = "0.1.0"
+permissions = []
+capabilities = []
+# Real LP3 hardware binds to the LightOS system app.
+# Use "com.thelightphone.sdk.emulator" for the LightOS emulator instead.
+serverPackage = "com.lightos"
