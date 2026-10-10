@@ -1,5 +1,6 @@
 package com.wsturgiss.dnd.ui
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -85,13 +86,14 @@ fun Page(
 /** A page whose content scrolls, with the usual side margins. */
 @Composable
 fun ScrollPage(
+    scroll: ScrollState,
     title: String,
     onBack: (() -> Unit)?,
     bottom: List<LightBarButton?> = emptyList(),
     right: LightBarButton? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) = Page(title, onBack, bottom, right) {
-    LightScrollView(modifier = Modifier.fillMaxSize()) {
+    LightScrollView(modifier = Modifier.fillMaxSize(), scrollState = scroll) {
         Column(modifier = Modifier.padding(horizontal = GUTTER.gridUnitsAsDp())) {
             content()
             Spacer(Modifier.height(1.5f.gridUnitsAsDp()))

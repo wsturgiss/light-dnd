@@ -355,6 +355,7 @@ class LogScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
         val save by Store.state.collectAsState()
         val time = DateFormat.getTimeInstance(DateFormat.SHORT)
         ScrollPage(
+            scroll,
             title = "Roll log",
             onBack = { goBack(null) },
             bottom = listOf(

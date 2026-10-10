@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -42,6 +43,7 @@ class LookupScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
     @Composable
     override fun Content() {
         ScrollPage(
+            scroll,
             title = "Look up",
             onBack = { goBack(null) },
             bottom = listOf(
@@ -91,6 +93,8 @@ class EntryListScreen(
     /** -1 for every level. */
     private var spellLevel by mutableStateOf(-1)
     private var crBucket by mutableStateOf(0)
+    /** Kept on the screen, like [scroll], so the list is where you left it after opening an entry. */
+    private val listScroll = LazyListState()
 
     private val isSpells get() = kinds == listOf(Kind.Spells)
     private val isMonsters get() = kinds == listOf(Kind.Monsters)
@@ -147,6 +151,7 @@ class EntryListScreen(
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = GUTTER.gridUnitsAsDp()),
+                    listState = listScroll,
                     uniformItemHeightGridUnits = ROW_UNITS,
                 ) {
                     items(list, key = { "${it.first}/${it.second.name}" }) { (kind, e) ->
@@ -223,7 +228,7 @@ class EntryScreen(
         val c = save.character
         val e = remember { Srd.find(lightContext, kind, name) }
         if (e == null) {
-            ScrollPage(title = kind.label, onBack = { goBack(null) }) { T("Not found: $name", Style.Body) }
+            ScrollPage(scroll, title = kind.label, onBack = { goBack(null) }) { T("Not found: $name", Style.Body) }
             return
         }
         val action: LightBarButton? = when (kind) {
@@ -246,7 +251,7 @@ class EntryScreen(
         }
         val inBag = c.items.find { it.name.equals(e.name, ignoreCase = true) }?.qty
 
-        ScrollPage(title = kind.label, onBack = { goBack(null) }, bottom = listOfNotNull(action)) {
+        ScrollPage(scroll, title = kind.label, onBack = { goBack(null) }, bottom = listOfNotNull(action)) {
             T(e.name, Style.Banner, Modifier.padding(top = 0.5f.gridUnitsAsDp()))
             T(e.meta, Style.Small, dim = true)
             when {
@@ -263,7 +268,7 @@ class AboutScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
 
     @Composable
     override fun Content() {
-        ScrollPage(title = "About", onBack = { goBack(null) }) {
+        ScrollPage(scroll, title = "About", onBack = { goBack(null) }) {
             Landscape(Modifier.padding(top = 1f.gridUnitsAsDp()))
             Section("Rules text")
             T(

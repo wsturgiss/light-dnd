@@ -37,6 +37,7 @@ class BagScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
         val c = save.character
 
         ScrollPage(
+            scroll,
             title = "Bag",
             onBack = { goBack(null) },
             bottom = listOf(
@@ -100,7 +101,7 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
         val save by Store.state.collectAsState()
         val item = save.character.items.find { it.id == id }
         if (item == null) {
-            ScrollPage(title = "Gone", onBack = { goBack(null) }) {}
+            ScrollPage(scroll, title = "Gone", onBack = { goBack(null) }) {}
             return
         }
         val kind = Kind.ofFile(item.srdKind)
@@ -109,6 +110,7 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
         fun setQty(q: Int) = Store.edit { c -> c.copy(items = c.items.map { if (it.id == id) it.copy(qty = q.coerceAtLeast(0)) else it }) }
 
         ScrollPage(
+            scroll,
             title = item.name,
             onBack = { goBack(null) },
             bottom = listOf(

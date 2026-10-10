@@ -2,6 +2,7 @@ package com.wsturgiss.dnd
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -9,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightIcons
@@ -18,6 +20,7 @@ import com.wsturgiss.dnd.model.Ability
 import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Skill
 import com.wsturgiss.dnd.model.Store
+import com.wsturgiss.dnd.model.Training
 import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.ui.KeyValueRow
 import com.wsturgiss.dnd.ui.ScrollPage
@@ -28,7 +31,7 @@ import com.wsturgiss.dnd.ui.TapRow
 
 /**
  * The character sheet, laid out like a typed one. Everything with a bonus is a
- * roll: tap an ability for a check, its save column for a save, a skill for
+ * roll: tap an ability for a check, its save for a save (P: proficient), a skill for
  * that skill. HP opens the damage/heal pad.
  */
 class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedActivity) {
@@ -39,6 +42,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
         val c = save.character
 
         ScrollPage(
+            scroll,
             title = "Sheet",
             onBack = { goBack(null) },
             bottom = listOf(
@@ -68,17 +72,26 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             )
 
             Section("Abilities")
+            // three equal columns: ability and score, check, save; the numbers right-aligned under their headers
             Row(Modifier.fillMaxWidth()) {
-                T("check", Style.Small, dim = true, modifier = Modifier.weight(1f))
-                T("save", Style.Small, dim = true, modifier = Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
+                T("check", Style.Small, dim = true, modifier = Modifier.weight(1f), align = TextAlign.End)
+                T("save", Style.Small, dim = true, modifier = Modifier.weight(1f), align = TextAlign.End)
             }
             Ability.entries.forEach { a ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    TapRow(onClick = { roll("d20${signed(c.mod(a))}", "${a.long} check") }, Modifier.weight(1f)) {
-                        T("${a.short} ${c.score(a).toString().padStart(2)} ${signed(c.mod(a)).padStart(3)}", Style.Mono)
+                    TapRow(onClick = { roll("d20${signed(c.mod(a))}", "${a.long} check") }, Modifier.weight(2f)) {
+                        T("${a.short} ${c.score(a).toString().padStart(2)}", Style.Mono, Modifier.weight(1f))
+                        T(signed(c.mod(a)), Style.Mono, Modifier.weight(1f), align = TextAlign.End)
                     }
                     TapRow(onClick = { roll("d20${signed(c.save(a))}", "${a.long} save") }, Modifier.weight(1f)) {
-                        T("${if (a in c.saves) "[x]" else "[ ]"} ${signed(c.save(a)).padStart(3)}", Style.Mono)
+                        // P: proficient, so the save adds the proficiency bonus
+                        T(
+                            "${if (a in c.saves) "P " else ""}${signed(c.save(a))}",
+                            Style.Mono,
+                            Modifier.weight(1f),
+                            align = TextAlign.End,
+                        )
                     }
                 }
             }
@@ -86,13 +99,19 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             Section("Skills")
             Skill.entries.forEach { s ->
                 TapRow(onClick = { roll("d20${signed(c.skill(s))}", s.label) }) {
-                    T("${c.training(s).mark} ", Style.Mono, dim = c.training(s).multiplier == 0)
+                    // the same marks as the saves; Edit keeps the checkboxes, since there they're toggles
+                    val mark = when (c.training(s)) {
+                        Training.None -> " "
+                        Training.Proficient -> "P"
+                        Training.Expertise -> "E"
+                    }
+                    T("$mark ", Style.Mono)
                     T(s.label, Style.Body, Modifier.weight(1f), maxLines = 1)
                     T(s.ability.short.lowercase() + " ", Style.MonoSmall, dim = true)
                     T(signed(c.skill(s)).padStart(3), Style.Mono)
                 }
             }
-            T("[x] proficient   [*] expertise", Style.Small, dim = true, modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()))
+            T("P proficient   E expertise", Style.Small, dim = true, modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()))
         }
     }
 
@@ -137,6 +156,7 @@ class RestScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
         val save by Store.state.collectAsState()
         val c = save.character
         ScrollPage(
+            scroll,
             title = "Rest",
             onBack = { goBack(null) },
             bottom = listOf(
@@ -182,7 +202,7 @@ class ConditionsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(se
         val save by Store.state.collectAsState()
         val active = save.character.conditions
         val all = com.wsturgiss.dnd.model.Srd.load(lightContext, Kind.Conditions)
-        ScrollPage(title = "Conditions", onBack = { goBack(null) }) {
+        ScrollPage(scroll, title = "Conditions", onBack = { goBack(null) }) {
             T("Tap to set or clear. › to read the rule.", Style.Small, dim = true, modifier = Modifier.padding(vertical = 0.5f.gridUnitsAsDp()))
             all.forEach { e ->
                 val on = e.name in active

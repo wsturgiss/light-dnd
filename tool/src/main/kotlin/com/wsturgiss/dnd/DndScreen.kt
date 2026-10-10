@@ -1,5 +1,6 @@
 package com.wsturgiss.dnd
 
+import androidx.compose.foundation.ScrollState
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
 import com.wsturgiss.dnd.model.Edge
@@ -15,6 +16,12 @@ abstract class DndScreen<R>(sealedActivity: SealedLightActivity) : SimpleLightSc
     init {
         Store.init(lightContext.filesDir)
     }
+
+    /**
+     * The page's scroll position. The SDK drops a screen's Compose state while another screen is
+     * on top of it, so this lives on the screen: back from a roll, the page is where you left it.
+     */
+    val scroll = ScrollState(0)
 
     /** Opens the dice screen, which rolls [request] straight away and logs it. */
     fun roll(request: RollRequest) = navigateTo(screenFactory = { RollScreen(it, request) })

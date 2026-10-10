@@ -30,7 +30,7 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
         val save by Store.state.collectAsState()
         val c = save.character
 
-        ScrollPage(title = "Edit", onBack = { goBack(null) }) {
+        ScrollPage(scroll, title = "Edit", onBack = { goBack(null) }) {
             Section("Who")
             KeyValueRow("Name", c.name, { askText("Name", c.name) { n -> Store.edit { it.copy(name = n) } } }, valueStyle = Style.Body)
             KeyValueRow("Class", c.className, { navigateTo(screenFactory = { ClassPickerScreen(it) }) }, valueStyle = Style.Body)
@@ -111,7 +111,7 @@ class ClassPickerScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(s
     @Composable
     override fun Content() {
         val save by Store.state.collectAsState()
-        ScrollPage(title = "Class", onBack = { goBack(null) }) {
+        ScrollPage(scroll, title = "Class", onBack = { goBack(null) }) {
             CLASSES.forEach { name ->
                 TapRow(onClick = {
                     Store.edit { it.copy(className = name) }
@@ -136,6 +136,7 @@ class ConfirmScreen(
     @Composable
     override fun Content() {
         ScrollPage(
+            scroll,
             title = title,
             onBack = { goBack(null) },
             bottom = listOf(

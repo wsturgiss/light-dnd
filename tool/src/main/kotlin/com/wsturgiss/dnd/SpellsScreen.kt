@@ -45,6 +45,7 @@ class SpellsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
         val known = c.spells.mapNotNull { Srd.find(lightContext, Kind.Spells, it) }
 
         ScrollPage(
+            scroll,
             title = "Spells",
             onBack = { goBack(null) },
             bottom = listOf(
