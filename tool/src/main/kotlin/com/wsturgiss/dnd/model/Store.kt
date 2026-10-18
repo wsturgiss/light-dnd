@@ -143,6 +143,16 @@ object Store {
         save()
     }
 
+    /**
+     * Puts [c] in place of the active character. The save as it stood is kept first, beside it, as
+     * `character.json.bak-<time>`; [reload] only ever reads `character.json`, so a sync leaves it be.
+     */
+    fun replaceActive(c: Character) {
+        val before = _state.value
+        _state.update { s -> s.copy(characters = s.characters.mapIndexed { i, old -> if (i == s.active) c else old }.ifEmpty { listOf(c) }) }
+        save(backup = before)
+    }
+
     fun switchTo(index: Int) {
         _state.update { it.copy(active = index.coerceIn(it.characters.indices)) }
         save()
@@ -188,11 +198,22 @@ object Store {
         save()
     }
 
-    private fun save() {
+    private fun save(backup: SaveFile? = null) {
         val f = file ?: return
         val snapshot = _state.value
         scope.launch {
             writeLock.withLock {
+                if (backup != null) {
+                    runCatching {
+                        val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
+                        File(f.parentFile, "${f.name}.bak-$stamp").writeText(json.encodeToString(SaveFile.serializer(), backup))
+                    }.onFailure {
+                        // no backup, no replace: put the old save back unless something's changed since
+                        Log.e(TAG, "Backup failed; not replacing", it)
+                        _state.compareAndSet(snapshot, backup)
+                        return@withLock
+                    }
+                }
                 runCatching {
                     // Hidden, so the Tool Manager doesn't list a half-written file.
                     val tmp = File(f.parentFile, ".${f.name}.tmp")

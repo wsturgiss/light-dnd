@@ -70,6 +70,7 @@ class BagScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
                 TapRow(onClick = { navigateTo(screenFactory = { ItemScreen(it, item.id) }) }) {
                     T(item.name, Style.Body, Modifier.weight(1f), maxLines = 1)
                     if (c.isWorn(item)) T("worn  ", Style.MonoSmall, dim = true)
+                    else if (item.equipped && !c.wearable(item)) T("equipped  ", Style.MonoSmall, dim = true)
                     T("x${item.qty}", Style.Mono, dim = item.qty == 1)
                 }
             }

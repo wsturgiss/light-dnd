@@ -43,9 +43,12 @@ data class NumberRequest(
     val initial: Int? = null,
     val actions: List<String> = listOf("Set"),
     val allowNegative: Boolean = false,
+    /** How many digits it takes; past 9 (a long ID) read [NumberResult.long]. */
+    val maxDigits: Int = 5,
 )
 
-data class NumberResult(val action: Int, val value: Int)
+/** [value] is clamped to an Int; [long] is the number as typed. */
+data class NumberResult(val action: Int, val value: Int, val long: Long = value.toLong())
 
 class NumberPadScreen(
     sealedActivity: SealedLightActivity,
@@ -58,13 +61,13 @@ class NumberPadScreen(
         entry = when (key) {
             "<" -> entry.dropLast(1)
             "-" -> if (entry.startsWith("-")) entry.drop(1) else "-$entry"
-            else -> if (entry == "0" || entry == "-0") entry.dropLast(1) + key else (entry + key).take(5)
+            else -> if (entry == "0" || entry == "-0") entry.dropLast(1) + key else (entry + key).take(request.maxDigits)
         }
     }
 
     @Composable
     override fun Content() {
-        val value = entry.toIntOrNull()
+        val value = entry.toLongOrNull()
         Page(title = request.title, onBack = { goBack(null) }) {
             Column(
                 Modifier
@@ -83,7 +86,7 @@ class NumberPadScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.4f.gridUnitsAsDp())) {
                     request.actions.forEachIndexed { i, label ->
                         PadKey(label.uppercase(), Modifier.weight(1f), enabled = value != null) {
-                            value?.let { goBack(NumberResult(i, it)) }
+                            value?.let { goBack(NumberResult(i, it.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt(), it)) }
                         }
                     }
                 }
