@@ -60,6 +60,8 @@ data class Item(
     val weight: Double = 0.0,
     /** Which SRD list it came from ("equipment", "magic-items"), so it can link back. */
     val srdKind: String? = null,
+    /** Disadvantage on Stealth, set on the item; null follows the SRD for armor of this name. */
+    val stealthDisadvantage: Boolean? = null,
 )
 
 /** A feat taken, by its Look up name, and what it was taken for ("Cleric" for Magic Initiate). */
@@ -132,6 +134,20 @@ data class Character(
         item.name == wearing -> copy(wearing = null)
         else -> copy(wearing = item.name)
     }
+
+    /** The item gives disadvantage on Stealth: as set on it, or as the SRD has armor of its name. */
+    fun givesStealthDisadvantage(item: Item): Boolean =
+        item.stealthDisadvantage ?: (ARMOR.find { it.name == item.name }?.stealthDisadvantage == true)
+
+    /**
+     * What gives disadvantage on Stealth now, by name: armor and shield only while worn (worn
+     * armor that isn't in the bag goes by the SRD), anything else marked so while it's carried.
+     */
+    val stealthDisadvantageFrom: List<String>
+        get() = buildList {
+            if (wearing != null && items.none { it.name == wearing } && ARMOR.find { it.name == wearing }?.stealthDisadvantage == true) add(wearing)
+            items.filter { givesStealthDisadvantage(it) && (if (wearable(it)) isWorn(it) else it.qty > 0) }.forEach { add(it.name) }
+        }.distinct()
 
     val initiative: Int get() = mod(Ability.DEX)
     val passivePerception: Int get() = 10 + skill(Skill.Perception)

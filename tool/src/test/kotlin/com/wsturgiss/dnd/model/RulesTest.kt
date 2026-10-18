@@ -298,6 +298,62 @@ class RulesTest {
     }
 
     @Test
+    fun armorStealthDisadvantageMatchesTheSrd() {
+        val srd: List<kotlinx.serialization.json.JsonObject> = Json.decodeFromString(java.io.File("src/main/assets/srd/equipment.json").readText())
+        val marked = srd.filter { "Disadvantage on Stealth" in it["b"].toString() }
+            .map { it["n"].toString().trim('"') }.toSet()
+        assertEquals(marked, ARMOR.filter { it.stealthDisadvantage }.map { it.name }.toSet())
+        assertTrue("Chain Mail" in marked)
+    }
+
+    @Test
+    fun wornArmorImposesStealthDisadvantage() {
+        val mail = Item(1, "Chain Mail")
+        val c = Character(items = listOf(mail, Item(2, "Leather Armor")))
+        assertTrue(c.stealthDisadvantageFrom.isEmpty())
+        assertEquals(listOf("Chain Mail"), c.copy(wearing = "Chain Mail").stealthDisadvantageFrom)
+        assertTrue(c.copy(wearing = "Leather Armor").stealthDisadvantageFrom.isEmpty())
+        // worn by name with nothing in the bag still goes by the SRD
+        assertEquals(listOf("Plate Armor"), Character(wearing = "Plate Armor").stealthDisadvantageFrom)
+    }
+
+    @Test
+    fun anItemCanSetOrClearStealthDisadvantage() {
+        val quiet = Item(1, "Chain Mail", stealthDisadvantage = false)
+        assertTrue(Character(items = listOf(quiet), wearing = "Chain Mail").stealthDisadvantageFrom.isEmpty())
+        val leather = Item(2, "Leather Armor", stealthDisadvantage = true)
+        assertTrue(Character(items = listOf(leather)).stealthDisadvantageFrom.isEmpty())
+        assertEquals(listOf("Leather Armor"), Character(items = listOf(leather), wearing = "Leather Armor").stealthDisadvantageFrom)
+        // something that can't be worn counts while it's carried
+        val bells = Item(3, "Cloak of Bells", stealthDisadvantage = true)
+        assertEquals(listOf("Cloak of Bells"), Character(items = listOf(bells)).stealthDisadvantageFrom)
+        assertTrue(Character(items = listOf(bells.copy(qty = 0))).stealthDisadvantageFrom.isEmpty())
+        assertTrue(Character(items = listOf(Item(4, "Rope"))).stealthDisadvantageFrom.isEmpty())
+    }
+
+    @Test
+    fun advantageAndDisadvantageCancel() {
+        assertEquals(Edge.None, combinedEdge(listOf(Edge.Advantage, Edge.Disadvantage)))
+        assertEquals(Edge.None, combinedEdge(listOf(Edge.Advantage, Edge.Advantage, Edge.Disadvantage)))
+        assertEquals(Edge.Disadvantage, combinedEdge(listOf(Edge.None, Edge.Disadvantage, Edge.Disadvantage)))
+        assertEquals(Edge.Advantage, combinedEdge(listOf(Edge.Advantage)))
+        assertEquals(Edge.None, combinedEdge(emptyList()))
+    }
+
+    @Test
+    fun savesFromBeforeStealthDisadvantageStillLoad() {
+        val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        val old = """{"characters":[{"name":"Will","wearing":"Chain Mail","items":[""" +
+            """{"id":1,"name":"Chain Mail","qty":1,"weight":55.0,"srdKind":"equipment"},{"id":2,"name":"Rope","qty":1}]}],"active":0}"""
+        val s = json.decodeFromString<SaveFile>(old)
+        val c = s.characters.single()
+        assertTrue(c.items.all { it.stealthDisadvantage == null })
+        assertEquals(listOf("Chain Mail"), c.stealthDisadvantageFrom)
+        // and round-trips with the new field
+        assertEquals(s, json.decodeFromString<SaveFile>(json.encodeToString(SaveFile.serializer(), s)))
+    }
+
+    @Test
     fun oldSavesBecomeACharacterList() {
         val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
         val old = """{"character":{"name":"Wren","level":3},"log":[],"nextItemId":4}"""

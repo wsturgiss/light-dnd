@@ -39,6 +39,7 @@ import com.wsturgiss.dnd.model.Edge
 import com.wsturgiss.dnd.model.LoggedRoll
 import com.wsturgiss.dnd.model.Roll
 import com.wsturgiss.dnd.model.Store
+import com.wsturgiss.dnd.model.combinedEdge
 import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.ui.DiceClips
 import com.wsturgiss.dnd.ui.DiceStage
@@ -68,6 +69,10 @@ class RollScreen(
     private var expr by mutableStateOf(request?.expr?.let { DiceExpr.parse(it) })
     private var label by mutableStateOf(request?.label)
     private var edge by mutableStateOf(request?.edge ?: Edge.None)
+    /** Disadvantage the sheet imposes (worn armor on Stealth); kept for rerolls, gone with a new expression. */
+    private var imposed by mutableStateOf(request?.disadvantageFrom.orEmpty())
+    /** What's rolled: [edge] as tapped with anything [imposed], cancelling as in 5e. */
+    private val rolledEdge: Edge get() = combinedEdge(listOf(edge) + if (imposed.isNotEmpty()) listOf(Edge.Disadvantage) else emptyList())
     private var result by mutableStateOf<LoggedRoll?>(null)
     /** The roll behind [result], with every die's face, for the animation. */
     private var lastRoll by mutableStateOf<Roll?>(null)
@@ -86,7 +91,7 @@ class RollScreen(
     private fun rollNow() {
         val e = expr ?: DiceExpr.parse("d20")!!
         expr = e
-        val roll = e.roll(edge)
+        val roll = e.roll(rolledEdge)
         result = Store.record(label ?: e.toString(), roll)
         lastRoll = roll
         rollId++
@@ -101,6 +106,7 @@ class RollScreen(
         val base = if (fresh) "" else expr?.toString().orEmpty()
         if (fresh) {
             label = null
+            imposed = emptyList()
             fresh = false
         }
         // A modifier with no dice yet applies to a d20: +5 then Roll is d20+5, not a flat 5.
@@ -116,6 +122,7 @@ class RollScreen(
         lastRoll = null
         fresh = false
         edge = Edge.None
+        imposed = emptyList()
     }
 
     @Composable
@@ -156,6 +163,10 @@ class RollScreen(
             val stage = lastRoll?.let(::stageDice)
             // what was rolled, always in the same place: top centre
             T(r.label, Style.Small, dim = true, maxLines = 1)
+            if (imposed.isNotEmpty()) {
+                val why = "disadvantage: ${imposed.joinToString(", ")}"
+                T(if (edge == Edge.Advantage) "$why, cancelled by ADV" else why, Style.Small, maxLines = 2, align = TextAlign.Center)
+            }
             if (stage != null && camera != DiceCamera.Off && r.edge != Edge.None) {
                 T(if (r.edge == Edge.Advantage) "advantage" else "disadvantage", Style.Small, dim = true)
             }
@@ -321,9 +332,11 @@ class RollScreen(
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
             )
-            if (edge != Edge.None) T(if (edge == Edge.Advantage) "ADV" else "DIS", Style.Mono)
+            // what's tapped and what's imposed; both shown, since they cancel
+            val marks = listOfNotNull("ADV".takeIf { edge == Edge.Advantage }, "DIS".takeIf { edge == Edge.Disadvantage || imposed.isNotEmpty() })
+            if (marks.isNotEmpty()) T(marks.joinToString(" "), Style.Mono)
             // clears the expression and the result; only there when there's something to clear
-            if (e != null || result != null || edge != Edge.None) {
+            if (e != null || result != null || edge != Edge.None || imposed.isNotEmpty()) {
                 Box(
                     Modifier
                         .lightClickable(onClick = ::clear)

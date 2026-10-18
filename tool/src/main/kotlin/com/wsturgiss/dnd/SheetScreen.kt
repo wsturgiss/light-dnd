@@ -100,8 +100,10 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             }
 
             Section("Skills")
+            val stealthDis = c.stealthDisadvantageFrom
             Skill.entries.forEach { s ->
-                TapRow(onClick = { roll("d20${signed(c.skill(s))}", s.label) }) {
+                val dis = if (s == Skill.Stealth) stealthDis else emptyList()
+                TapRow(onClick = { roll(RollRequest("d20${signed(c.skill(s))}", s.label, disadvantageFrom = dis)) }) {
                     // the same marks as the saves; Edit keeps the checkboxes, since there they're toggles
                     val mark = when (c.training(s)) {
                         Training.None -> " "
@@ -110,11 +112,13 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
                     }
                     T("$mark ", Style.Mono)
                     T(s.label, Style.Body, Modifier.weight(1f), maxLines = 1)
+                    if (dis.isNotEmpty()) T("DIS ", Style.MonoSmall)
                     T(s.ability.short.lowercase() + " ", Style.MonoSmall, dim = true)
                     T(signed(c.skill(s)).padStart(3), Style.Mono)
                 }
             }
             T("P proficient   E expertise", Style.Small, dim = true, modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()))
+            if (stealthDis.isNotEmpty()) T("DIS on Stealth: ${stealthDis.joinToString(", ")}", Style.Small, dim = true)
         }
     }
 

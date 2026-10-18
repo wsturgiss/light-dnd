@@ -144,6 +144,14 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
                     T("AC ${c.ac}", Style.Mono)
                 }
             }
+            val dis = c.givesStealthDisadvantage(item)
+            TapRow(onClick = {
+                Store.edit { ch -> ch.copy(items = ch.items.map { if (it.id == id) it.copy(stealthDisadvantage = !dis) else it }) }
+            }, Modifier.padding(top = 0.4f.gridUnitsAsDp())) {
+                T(if (dis) "[x] " else "[ ] ", Style.Mono, dim = !dis)
+                T("Disadvantage on Stealth", Style.Body, Modifier.weight(1f))
+            }
+            if (dis) T(if (c.wearable(item)) "While worn." else "While carried.", Style.Small, dim = true)
             if (entry != null) {
                 Section(kind.one)
                 T(entry.meta, Style.Small, dim = true)
