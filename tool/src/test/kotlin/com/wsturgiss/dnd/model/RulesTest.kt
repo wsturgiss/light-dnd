@@ -309,4 +309,43 @@ class RulesTest {
         val edited = two.withCharacter { it.copy(hp = 1) }
         assertEquals(listOf(10, 1), edited.characters.map { it.hp })
     }
+
+    @Test
+    fun typedInScoresAndHpReplaceTheRules() {
+        val typed = mapOf(Ability.STR to 8, Ability.DEX to 18, Ability.CON to 14, Ability.INT to 22, Ability.WIS to 1, Ability.CHA to 30)
+        val d = Draft(className = "Wizard", background = "Sage", manualScores = typed, manualHp = 27)
+        // no background bonus, no cap at 20
+        assertEquals(typed, d.scores)
+        assertEquals(-1, d.mod(Ability.STR))
+        assertEquals(4, d.mod(Ability.DEX))
+        assertEquals(6, d.mod(Ability.INT))
+        assertEquals(-5, d.mod(Ability.WIS))
+        assertEquals(10, d.mod(Ability.CHA))
+        assertEquals(27, d.maxHp)
+        val c = d.copy(name = "Vex", picks = mapOf("class" to setOf(Skill.History, Skill.Medicine)), versatileFeat = "Alert").build()
+        assertEquals(typed, c.scores)
+        assertEquals(27, c.maxHp)
+        assertEquals(27, c.hp)
+        assertEquals(4, c.mod(Ability.DEX))
+    }
+
+    @Test
+    fun typedInHpAloneKeepsWorkedOutScores() {
+        val d = Draft(manualHp = 40)
+        assertEquals(Draft().scores, d.scores)
+        assertEquals(40, d.maxHp)
+    }
+
+    @Test
+    fun badTypedInValuesBlockCreation() {
+        assertTrue(validScore(1) && validScore(30))
+        assertFalse(validScore(0) || validScore(31))
+        assertTrue(validHp(1))
+        assertFalse(validHp(0))
+        val bad = Draft(manualScores = Ability.entries.associateWith { 10 } + (Ability.STR to 31), manualHp = 0)
+        assertTrue("scores of 1 to 30" in bad.missing, bad.missing.toString())
+        assertTrue("HP of 1 or more" in bad.missing, bad.missing.toString())
+        assertTrue("scores of 1 to 30" in Draft(manualScores = mapOf(Ability.STR to 10)).missing)
+        assertFalse(Draft(manualScores = Ability.entries.associateWith { 12 }, manualHp = 1).missing.any { "scores" in it || "HP" in it })
+    }
 }

@@ -331,6 +331,13 @@ fun gearNames(options: List<GearOption>): List<String> = options.map { o ->
 /** A source of skill picks while building: the class's list, a species trait, a custom background. */
 data class SkillPool(val key: String, val label: String, val count: Int, val from: List<Skill>)
 
+/** What a typed-in ability score may be (the rules' 1 to 30). */
+val SCORE_RANGE = 1..30
+
+fun validScore(v: Int): Boolean = v in SCORE_RANGE
+
+fun validHp(v: Int): Boolean = v >= 1
+
 /**
  * A character being built. Fields left null follow the suggestion for the class and background,
  * so changing class re-deals the scores until you set them yourself.
@@ -371,6 +378,13 @@ data class Draft(
     val languages: Set<String> = emptySet(),
     /** Null takes the SRD's subclass for the class, from 3rd level. */
     val subclass: String? = null,
+    /**
+     * Final scores typed in, for a character made elsewhere: they replace base and background
+     * bonus (bonuses already in, no cap at 20). Null works them out.
+     */
+    val manualScores: Map<Ability, Int>? = null,
+    /** Max HP typed in, for a character made elsewhere. Null works it out. */
+    val manualHp: Int? = null,
 ) {
     val cls: ClassInfo? get() = classInfo(className)
     val speciesInfo: SpeciesInfo? get() = speciesInfo(species)
@@ -380,11 +394,10 @@ data class Draft(
     val baseScores: Map<Ability, Int> get() = base ?: suggestedScores(cls)
     val bonusOrSuggested: Map<Ability, Int> get() = bonus ?: suggestedBonus(cls, backgroundInfo)
 
-    /** Base plus background, no higher than 20. */
+    /** Typed in, or base plus background no higher than 20. */
     val scores: Map<Ability, Int>
-        get() = Ability.entries.associateWith { a ->
-            ((baseScores[a] ?: 10) + (bonusOrSuggested[a] ?: 0)).coerceAtMost(20)
-        }
+        get() = manualScores?.let { m -> Ability.entries.associateWith { a -> m[a] ?: 10 } }
+            ?: Ability.entries.associateWith { a -> ((baseScores[a] ?: 10) + (bonusOrSuggested[a] ?: 0)).coerceAtMost(20) }
 
     fun mod(a: Ability): Int = Math.floorDiv((scores[a] ?: 10) - 10, 2)
 
@@ -408,6 +421,7 @@ data class Draft(
     /** Full hit die at 1st level; the fixed average for each level after. Never less than 1 a level. */
     val maxHp: Int
         get() {
+            manualHp?.let { return it }
             val die = cls?.hitDie ?: 8
             val con = mod(Ability.CON)
             val first = maxOf(1, die + con) + hpPerLevelBonus
@@ -426,6 +440,10 @@ data class Draft(
                 if (n < p.count) add("${p.count - n} ${p.label.lowercase()} skill${if (p.count - n == 1) "" else "s"}")
             }
             if (expertise.size < expertiseCount) add("${expertiseCount - expertise.size} expertise")
+            if (manualScores != null && (manualScores.size < Ability.entries.size || !manualScores.values.all(::validScore))) {
+                add("scores of ${SCORE_RANGE.first} to ${SCORE_RANGE.last}")
+            }
+            if (manualHp != null && !validHp(manualHp)) add("HP of 1 or more")
         }
 
     fun classGearOption(gear: Map<String, List<GearOption>>): GearOption? = gear[className]?.getOrNull(classGear)

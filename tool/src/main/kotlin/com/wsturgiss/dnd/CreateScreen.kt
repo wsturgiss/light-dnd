@@ -35,6 +35,9 @@ import com.wsturgiss.dnd.model.gearNames
 import com.wsturgiss.dnd.model.POINT_BUY_BUDGET
 import com.wsturgiss.dnd.model.SPECIES
 import com.wsturgiss.dnd.model.STANDARD_ARRAY
+import com.wsturgiss.dnd.model.SCORE_RANGE
+import com.wsturgiss.dnd.model.validHp
+import com.wsturgiss.dnd.model.validScore
 import com.wsturgiss.dnd.model.Store
 import com.wsturgiss.dnd.model.backgroundBonuses
 import com.wsturgiss.dnd.model.bonusLabel
@@ -115,18 +118,25 @@ class CreateScreen(sealedActivity: SealedLightActivity) : DndScreen<Boolean>(sea
             })
 
             Section("Scores")
-            KeyValueRow("Base", d.baseMethod, {
+            val typed = d.manualScores != null
+            KeyValueRow("Base", if (typed) "typed in" else d.baseMethod, {
                 navigateTo(
                     screenFactory = { ScoresScreen(it, cls) },
-                    resultCallback = { r -> change { it.copy(base = r.scores, baseMethod = r.method) } },
+                    resultCallback = { r -> change { it.copy(base = r.scores, baseMethod = r.method, manualScores = null) } },
                 )
             }, valueStyle = Style.Body)
-            if (bg != null) {
+            KeyValueRow("Type my own", if (typed || d.manualHp != null) "set" else "scores, HP", {
+                navigateTo(
+                    screenFactory = { ManualStatsScreen(it, d.scores, d.maxHp, cleared = typed || d.manualHp != null) },
+                    resultCallback = { r -> change { it.copy(manualScores = r.scores, manualHp = r.hp) } },
+                )
+            }, valueStyle = Style.Body)
+            if (bg != null && !typed) {
                 KeyValueRow("${bg.name} bonus", bonusLabel(d.bonusOrSuggested), ::pickBonus, valueStyle = Style.MonoSmall)
             }
             Row(Modifier.fillMaxWidth().padding(top = 0.4f.gridUnitsAsDp())) {
                 T("", Style.Small, Modifier.weight(1f))
-                listOf("base", "bonus", "score", "mod").forEach {
+                (if (typed) listOf("", "", "score", "mod") else listOf("base", "bonus", "score", "mod")).forEach {
                     T(it, Style.Small, Modifier.weight(1f), dim = true, align = TextAlign.End)
                 }
             }
@@ -134,8 +144,8 @@ class CreateScreen(sealedActivity: SealedLightActivity) : DndScreen<Boolean>(sea
                 val bonus = d.bonusOrSuggested[a] ?: 0
                 Row(Modifier.fillMaxWidth()) {
                     T(a.short, Style.Mono, Modifier.weight(1f))
-                    T("${d.baseScores[a] ?: 10}", Style.Mono, Modifier.weight(1f), align = TextAlign.End)
-                    T(if (bonus > 0) "+$bonus" else "", Style.Mono, Modifier.weight(1f), dim = true, align = TextAlign.End)
+                    T(if (typed) "" else "${d.baseScores[a] ?: 10}", Style.Mono, Modifier.weight(1f), align = TextAlign.End)
+                    T(if (bonus > 0 && !typed) "+$bonus" else "", Style.Mono, Modifier.weight(1f), dim = true, align = TextAlign.End)
                     T("${d.scores[a]}", Style.Mono, Modifier.weight(1f), align = TextAlign.End)
                     T(signed(d.mod(a)), Style.Mono, Modifier.weight(1f), align = TextAlign.End)
                 }
@@ -589,5 +599,78 @@ class ScoresScreen(
 
     private companion object {
         val STANDARD_ARRAY_LINE = STANDARD_ARRAY.joinToString(" ")
+    }
+}
+
+/** Typed-in scores and HP; both null puts the draft back on the rules. */
+data class ManualStats(val scores: Map<Ability, Int>?, val hp: Int?)
+
+/**
+ * Six scores and max HP typed in, for a character already made on paper. Each opens the number
+ * pad; scores must be 1 to 30 (with every bonus in), HP 1 or more. Modifiers follow the scores.
+ */
+class ManualStatsScreen(
+    sealedActivity: SealedLightActivity,
+    initialScores: Map<Ability, Int>,
+    initialHp: Int,
+    /** Something is typed in already, so offer to go back to the rules. */
+    private val cleared: Boolean,
+) : DndScreen<ManualStats>(sealedActivity) {
+
+    private var scores by mutableStateOf(Ability.entries.associateWith { initialScores[it] ?: 10 })
+    private var hp by mutableStateOf(initialHp)
+    private var error by mutableStateOf<String?>(null)
+
+    @Composable
+    override fun Content() {
+        ScrollPage(
+            scroll,
+            title = "Your own",
+            onBack = { goBack(null) },
+            action = LightBarButton.LightIcon(LightIcons.ACCEPT, contentDescription = "Use", onClick = {
+                goBack(ManualStats(scores, hp))
+            }),
+        ) {
+            T("For a character made elsewhere: final scores, bonuses in. Tap one to change it.", Style.Small, dim = true)
+            Ability.entries.forEach { a ->
+                val v = scores[a] ?: 10
+                TapRow(onClick = {
+                    askNumber(NumberRequest(a.long, "${SCORE_RANGE.first} to ${SCORE_RANGE.last}.", v)) { r ->
+                        if (validScore(r.value)) {
+                            scores = scores + (a to r.value)
+                            error = null
+                        } else {
+                            error = "${a.short} must be ${SCORE_RANGE.first} to ${SCORE_RANGE.last}; ${r.value} wasn't kept."
+                        }
+                    }
+                }) {
+                    T(a.short + "  ", Style.Mono)
+                    T(a.long, Style.Body, Modifier.weight(1f))
+                    T(signed(Math.floorDiv(v - 10, 2)) + "  ", Style.MonoSmall, dim = true)
+                    T("$v", Style.MonoBig)
+                }
+            }
+            Section("Hit points")
+            TapRow(onClick = {
+                askNumber(NumberRequest("Max HP", "1 or more.", hp)) { r ->
+                    if (validHp(r.value)) {
+                        hp = r.value
+                        error = null
+                    } else {
+                        error = "HP must be 1 or more; ${r.value} wasn't kept."
+                    }
+                }
+            }) {
+                T("Max HP", Style.Body, Modifier.weight(1f))
+                T("$hp", Style.MonoBig)
+            }
+            error?.let { T(it, Style.Body, modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp())) }
+            if (cleared) {
+                TapRow(onClick = { goBack(ManualStats(null, null)) }, Modifier.padding(top = 1f.gridUnitsAsDp())) {
+                    T("Use the rules instead", Style.Body, Modifier.weight(1f))
+                    T("›", Style.Heading, dim = true)
+                }
+            }
+        }
     }
 }
