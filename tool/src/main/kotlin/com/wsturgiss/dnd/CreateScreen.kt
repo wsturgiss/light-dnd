@@ -35,6 +35,7 @@ import com.wsturgiss.dnd.model.gearNames
 import com.wsturgiss.dnd.model.POINT_BUY_BUDGET
 import com.wsturgiss.dnd.model.SPECIES
 import com.wsturgiss.dnd.model.STANDARD_ARRAY
+import com.wsturgiss.dnd.model.HP_RANGE
 import com.wsturgiss.dnd.model.SCORE_RANGE
 import com.wsturgiss.dnd.model.validHp
 import com.wsturgiss.dnd.model.validScore
@@ -119,15 +120,16 @@ class CreateScreen(sealedActivity: SealedLightActivity) : DndScreen<Boolean>(sea
 
             Section("Scores")
             val typed = d.manualScores != null
-            KeyValueRow("Base", if (typed) "typed in" else d.baseMethod, {
+            KeyValueRow("Base", d.baseMethod, {
                 navigateTo(
                     screenFactory = { ScoresScreen(it, cls) },
-                    resultCallback = { r -> change { it.copy(base = r.scores, baseMethod = r.method, manualScores = null) } },
+                    resultCallback = { r -> change { it.withBase(r.scores, r.method) } },
                 )
             }, valueStyle = Style.Body)
-            KeyValueRow("Type my own", if (typed || d.manualHp != null) "set" else "scores, HP", {
+            val typedLabel = listOfNotNull("scores".takeIf { typed }, "HP".takeIf { d.manualHp != null })
+            KeyValueRow("Type my own", if (typedLabel.isEmpty()) "scores, HP" else typedLabel.joinToString(", ") + " typed", {
                 navigateTo(
-                    screenFactory = { ManualStatsScreen(it, d.scores, d.maxHp, cleared = typed || d.manualHp != null) },
+                    screenFactory = { ManualStatsScreen(it, d) },
                     resultCallback = { r -> change { it.copy(manualScores = r.scores, manualHp = r.hp) } },
                 )
             }, valueStyle = Style.Body)
@@ -319,7 +321,7 @@ class CreateScreen(sealedActivity: SealedLightActivity) : DndScreen<Boolean>(sea
 
             Section("Sheet")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Stat("HP", "${d.maxHp}")
+                Stat(if (d.manualHp != null) "HP (TYPED)" else "HP", "${d.maxHp}")
                 Stat("AC", "${d.ac}")
                 Stat("SPEED", "${d.speciesInfo?.speed ?: 30}")
                 Stat("INIT", signed(d.mod(Ability.DEX)))
@@ -602,24 +604,30 @@ class ScoresScreen(
     }
 }
 
-/** Typed-in scores and HP; both null puts the draft back on the rules. */
+/** Typed-in scores and HP; null leaves that part to the rules, both null puts the draft back on them. */
 data class ManualStats(val scores: Map<Ability, Int>?, val hp: Int?)
 
 /**
  * Six scores and max HP typed in, for a character already made on paper. Each opens the number
- * pad; scores must be 1 to 30 (with every bonus in), HP 1 or more. Modifiers follow the scores.
+ * pad; scores must be 1 to 30 (with every bonus in), HP 1 to 999. Modifiers follow the scores.
+ * Only what you tap is typed in: until then scores and HP stay worked out, and HP follows a
+ * typed CON.
  */
 class ManualStatsScreen(
     sealedActivity: SealedLightActivity,
-    initialScores: Map<Ability, Int>,
-    initialHp: Int,
-    /** Something is typed in already, so offer to go back to the rules. */
-    private val cleared: Boolean,
+    private val draft: Draft,
 ) : DndScreen<ManualStats>(sealedActivity) {
 
-    private var scores by mutableStateOf(Ability.entries.associateWith { initialScores[it] ?: 10 })
-    private var hp by mutableStateOf(initialHp)
+    /** Something is typed in already, so offer to go back to the rules. */
+    private val hasTyped = draft.manualScores != null || draft.manualHp != null
+
+    private var scores by mutableStateOf(Ability.entries.associateWith { draft.scores[it] ?: 10 })
+    private var scoresTyped by mutableStateOf(draft.manualScores != null)
+    private var typedHp by mutableStateOf(draft.manualHp)
     private var error by mutableStateOf<String?>(null)
+
+    /** Typed, or worked out by the rules from the scores as they stand here. */
+    private val hp: Int get() = typedHp ?: draft.copy(manualScores = scores.takeIf { scoresTyped }, manualHp = null).maxHp
 
     @Composable
     override fun Content() {
@@ -628,7 +636,7 @@ class ManualStatsScreen(
             title = "Your own",
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.ACCEPT, contentDescription = "Use", onClick = {
-                goBack(ManualStats(scores, hp))
+                goBack(ManualStats(scores.takeIf { scoresTyped }, typedHp))
             }),
         ) {
             T("For a character made elsewhere: final scores, bonuses in. Tap one to change it.", Style.Small, dim = true)
@@ -638,6 +646,7 @@ class ManualStatsScreen(
                     askNumber(NumberRequest(a.long, "${SCORE_RANGE.first} to ${SCORE_RANGE.last}.", v)) { r ->
                         if (validScore(r.value)) {
                             scores = scores + (a to r.value)
+                            scoresTyped = true
                             error = null
                         } else {
                             error = "${a.short} must be ${SCORE_RANGE.first} to ${SCORE_RANGE.last}; ${r.value} wasn't kept."
@@ -652,20 +661,21 @@ class ManualStatsScreen(
             }
             Section("Hit points")
             TapRow(onClick = {
-                askNumber(NumberRequest("Max HP", "1 or more.", hp)) { r ->
+                askNumber(NumberRequest("Max HP", "${HP_RANGE.first} to ${HP_RANGE.last}.", hp)) { r ->
                     if (validHp(r.value)) {
-                        hp = r.value
+                        typedHp = r.value
                         error = null
                     } else {
-                        error = "HP must be 1 or more; ${r.value} wasn't kept."
+                        error = "HP must be ${HP_RANGE.first} to ${HP_RANGE.last}; ${r.value} wasn't kept."
                     }
                 }
             }) {
                 T("Max HP", Style.Body, Modifier.weight(1f))
+                if (typedHp == null) T("worked out  ", Style.Small, dim = true)
                 T("$hp", Style.MonoBig)
             }
             error?.let { T(it, Style.Body, modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp())) }
-            if (cleared) {
+            if (hasTyped) {
                 TapRow(onClick = { goBack(ManualStats(null, null)) }, Modifier.padding(top = 1f.gridUnitsAsDp())) {
                     T("Use the rules instead", Style.Body, Modifier.weight(1f))
                     T("›", Style.Heading, dim = true)

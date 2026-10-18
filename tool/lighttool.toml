@@ -9,3 +9,5 @@ capabilities = ["tool-manager-provider"]
 # Real LP3 hardware binds to the LightOS system app.
 # Use "com.thelightphone.sdk.emulator" for the LightOS emulator instead.
 serverPackage = "com.lightos"
+# Keep the tool portrait: the plugin writes android:screenOrientation="portrait" on its activity.
+orientation = "portrait"

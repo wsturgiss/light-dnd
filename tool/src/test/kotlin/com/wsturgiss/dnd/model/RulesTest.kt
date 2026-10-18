@@ -344,8 +344,57 @@ class RulesTest {
         assertFalse(validHp(0))
         val bad = Draft(manualScores = Ability.entries.associateWith { 10 } + (Ability.STR to 31), manualHp = 0)
         assertTrue("scores of 1 to 30" in bad.missing, bad.missing.toString())
-        assertTrue("HP of 1 or more" in bad.missing, bad.missing.toString())
+        assertTrue("HP of 1 to 999" in bad.missing, bad.missing.toString())
         assertTrue("scores of 1 to 30" in Draft(manualScores = mapOf(Ability.STR to 10)).missing)
         assertFalse(Draft(manualScores = Ability.entries.associateWith { 12 }, manualHp = 1).missing.any { "scores" in it || "HP" in it })
+    }
+
+    @Test
+    fun hpBoundsMatchTheSheetEditor() {
+        assertTrue(validHp(999))
+        assertFalse(validHp(1000))
+        assertTrue("HP of 1 to 999" in Draft(manualHp = 1000).missing)
+        assertFalse(Draft(manualHp = 999).missing.any { "HP" in it })
+    }
+
+    @Test
+    fun typedInHpAloneLetsScoresFollowTheClass() {
+        val d = Draft(manualHp = 40).copy(className = "Wizard")
+        assertEquals(Draft(className = "Wizard").scores, d.scores)
+        assertEquals(40, d.maxHp)
+    }
+
+    @Test
+    fun typedInScoresAloneLetHpFollowTypedCon() {
+        val typed = Ability.entries.associateWith { 10 } + (Ability.CON to 16)
+        val d = Draft(level = 3, manualScores = typed)
+        val fighter = d.cls!!
+        assertEquals(fighter.hitDie + 3 + 2 * (fighter.averageHit + 3), d.maxHp)
+        // and a later level change still moves it
+        assertEquals(fighter.hitDie + 3 + 4 * (fighter.averageHit + 3), d.copy(level = 5).maxHp)
+    }
+
+    @Test
+    fun pickingABaseClearsTypedScoresAndHp() {
+        val d = Draft(manualScores = Ability.entries.associateWith { 18 }, manualHp = 50)
+        val base = mapOf(Ability.STR to 15, Ability.DEX to 14, Ability.CON to 13, Ability.INT to 12, Ability.WIS to 10, Ability.CHA to 8)
+        val back = d.withBase(base, "standard array")
+        assertNull(back.manualScores)
+        assertNull(back.manualHp)
+        assertEquals("standard array", back.baseMethod)
+        assertEquals(Draft(base = base).scores, back.scores)
+        assertEquals(Draft(base = base).maxHp, back.maxHp)
+    }
+
+    @Test
+    fun levelUpOfATypedCharacterUsesTypedCon() {
+        val typed = Ability.entries.associateWith { 10 } + (Ability.CON to 21)
+        val c = Draft(name = "Vex", level = 3, manualScores = typed, manualHp = 30).build()
+        assertEquals(30, c.maxHp)
+        val up = c.levelUp(hitRoll = 6, raise = mapOf(Ability.CON to 1), expertise = emptySet())
+        // CON over the cap isn't raised, and isn't lowered to 20 either
+        assertEquals(21, up.score(Ability.CON))
+        assertEquals(30 + 6 + 5, up.maxHp)
+        assertEquals(4, up.level)
     }
 }

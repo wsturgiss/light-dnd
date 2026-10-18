@@ -331,12 +331,15 @@ fun gearNames(options: List<GearOption>): List<String> = options.map { o ->
 /** A source of skill picks while building: the class's list, a species trait, a custom background. */
 data class SkillPool(val key: String, val label: String, val count: Int, val from: List<Skill>)
 
-/** What a typed-in ability score may be (the rules' 1 to 30). */
+/** What an ability score may be, typed in or edited (the rules' 1 to 30). */
 val SCORE_RANGE = 1..30
+
+/** What max HP may be, typed in or edited. */
+val HP_RANGE = 1..999
 
 fun validScore(v: Int): Boolean = v in SCORE_RANGE
 
-fun validHp(v: Int): Boolean = v >= 1
+fun validHp(v: Int): Boolean = v in HP_RANGE
 
 /**
  * A character being built. Fields left null follow the suggestion for the class and background,
@@ -443,8 +446,12 @@ data class Draft(
             if (manualScores != null && (manualScores.size < Ability.entries.size || !manualScores.values.all(::validScore))) {
                 add("scores of ${SCORE_RANGE.first} to ${SCORE_RANGE.last}")
             }
-            if (manualHp != null && !validHp(manualHp)) add("HP of 1 or more")
+            if (manualHp != null && !validHp(manualHp)) add("HP of ${HP_RANGE.first} to ${HP_RANGE.last}")
         }
+
+    /** Scores from a base method, back on the rules: anything typed in goes, HP too. */
+    fun withBase(scores: Map<Ability, Int>, method: String): Draft =
+        copy(base = scores, baseMethod = method, manualScores = null, manualHp = null)
 
     fun classGearOption(gear: Map<String, List<GearOption>>): GearOption? = gear[className]?.getOrNull(classGear)
     fun backgroundGearOption(gear: Map<String, List<GearOption>>): GearOption? = gear[background]?.getOrNull(backgroundGear)

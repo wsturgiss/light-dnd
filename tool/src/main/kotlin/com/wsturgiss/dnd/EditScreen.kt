@@ -17,6 +17,8 @@ import com.wsturgiss.dnd.model.classInfo
 import com.wsturgiss.dnd.model.slotsFor
 import com.wsturgiss.dnd.model.Character
 import com.wsturgiss.dnd.model.FULL_CASTER_SLOTS
+import com.wsturgiss.dnd.model.HP_RANGE
+import com.wsturgiss.dnd.model.SCORE_RANGE
 import com.wsturgiss.dnd.model.Skill
 import com.wsturgiss.dnd.model.Slots
 import com.wsturgiss.dnd.model.Store
@@ -69,11 +71,11 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
 
             Section("Scores")
             Ability.entries.forEach { a ->
-                NumberRow(a.long, c.score(a), 1..30) { v -> Store.edit { it.copy(scores = it.scores + (a to v)) } }
+                NumberRow(a.long, c.score(a), SCORE_RANGE) { v -> Store.edit { it.copy(scores = it.scores + (a to v)) } }
             }
 
             Section("Combat")
-            NumberRow("Max HP", c.maxHp, 1..999) { v -> Store.edit { it.copy(maxHp = v, hp = minOf(it.hp, v)) } }
+            NumberRow("Max HP", c.maxHp, HP_RANGE) { v -> Store.edit { it.copy(maxHp = v, hp = minOf(it.hp, v)) } }
             KeyValueRow("AC bonus", signed(c.acBonus), {
                 askNumber(
                     NumberRequest(
