@@ -45,13 +45,15 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             scroll,
             title = "Sheet",
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.LightIcon(LightIcons.PENCIL, onClick = { navigateTo(screenFactory = { EditScreen(it) }) }),
-                LightBarButton.Text("Rest", onClick = { navigateTo(screenFactory = { RestScreen(it) }) }),
-            ),
+            action = LightBarButton.LightIcon(LightIcons.PENCIL, onClick = { navigateTo(screenFactory = { EditScreen(it) }) }),
         ) {
             T(c.name, Style.Banner, Modifier.padding(top = 0.5f.gridUnitsAsDp()))
-            T("Level ${c.level} ${c.className}  ·  proficiency ${signed(c.proficiency)}", Style.Small, dim = true)
+            T(
+                listOf("Level ${c.level}", c.species, c.className).filter { it.isNotEmpty() }.joinToString(" ") +
+                    "  ·  proficiency ${signed(c.proficiency)}",
+                Style.Small,
+                dim = true,
+            )
 
             TapRow(onClick = ::adjustHp, Modifier.padding(top = 0.5f.gridUnitsAsDp())) {
                 T("HP", Style.Heading, Modifier.weight(1f))
@@ -70,6 +72,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
                 onClick = { navigateTo(screenFactory = { ConditionsScreen(it) }) },
                 valueStyle = Style.Small,
             )
+            KeyValueRow("Rest", "long · short", onClick = { navigateTo(screenFactory = { RestScreen(it) }) }, valueStyle = Style.Small)
 
             Section("Abilities")
             // three equal columns: ability and score, check, save; the numbers right-aligned under their headers
@@ -159,15 +162,16 @@ class RestScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
             scroll,
             title = "Rest",
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.Text("Long rest", onClick = {
-                    Store.edit { it.longRest() }
-                    goBack(null)
-                }),
-            ),
         ) {
             Section("Long rest")
             T("Eight hours. You regain all hit points and spell slots, and temporary hit points end.", Style.Body)
+            TapRow(onClick = {
+                Store.edit { it.longRest() }
+                goBack(null)
+            }) {
+                T("Take a long rest", Style.Body, Modifier.weight(1f))
+                T("›", Style.Heading, dim = true)
+            }
             T(
                 "Now: HP ${c.hp}/${c.maxHp}" +
                     c.slots.withIndex().filter { it.value.max > 0 }.joinToString("") { "  ·  ${ordinal(it.index + 1)} ${it.value.left}/${it.value.max}" },
@@ -187,12 +191,7 @@ class RestScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
 
 fun ordinal(n: Int) = when (n) { 1 -> "1st"; 2 -> "2nd"; 3 -> "3rd"; else -> "${n}th" }
 
-fun hitDie(className: String): Int = when (className) {
-    "Barbarian" -> 12
-    "Fighter", "Paladin", "Ranger" -> 10
-    "Sorcerer", "Wizard" -> 6
-    else -> 8
-}
+fun hitDie(className: String): Int = com.wsturgiss.dnd.model.classInfo(className)?.hitDie ?: 8
 
 /** Toggle conditions on yourself; the right column looks up what one does. */
 class ConditionsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedActivity) {

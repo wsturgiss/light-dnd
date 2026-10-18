@@ -40,11 +40,9 @@ class BagScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
             scroll,
             title = "Bag",
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.LightIcon(LightIcons.ADD, onClick = {
-                    navigateTo(screenFactory = { EntryListScreen(it, listOf(Kind.Equipment, Kind.MagicItems), "Add to bag", pickForBag = true) })
-                }),
-            ),
+            action = LightBarButton.LightIcon(LightIcons.ADD, onClick = {
+                navigateTo(screenFactory = { EntryListScreen(it, listOf(Kind.Equipment, Kind.MagicItems), "Add to bag", pickForBag = true) })
+            }),
         ) {
             Row(Modifier.fillMaxWidth().padding(top = 0.6f.gridUnitsAsDp())) {
                 Coin.entries.reversed().forEach { coin ->
@@ -71,6 +69,7 @@ class BagScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
             c.items.forEach { item ->
                 TapRow(onClick = { navigateTo(screenFactory = { ItemScreen(it, item.id) }) }) {
                     T(item.name, Style.Body, Modifier.weight(1f), maxLines = 1)
+                    if (c.isWorn(item)) T("worn  ", Style.MonoSmall, dim = true)
                     T("x${item.qty}", Style.Mono, dim = item.qty == 1)
                 }
             }
@@ -113,15 +112,12 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
             scroll,
             title = item.name,
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.LightIcon(LightIcons.TRASH, onClick = {
-                    Store.edit { c -> c.copy(items = c.items.filterNot { it.id == id }) }
-                    goBack(null)
-                }),
-                LightBarButton.LightIcon(LightIcons.PENCIL, onClick = {
-                    askText("Rename", item.name) { n -> Store.edit { c -> c.copy(items = c.items.map { if (it.id == id) it.copy(name = n) else it }) } }
-                }),
-            ),
+            action = LightBarButton.LightIcon(LightIcons.PENCIL, contentDescription = "Rename", onClick = {
+                askText("Rename", item.name) { n ->
+                    // renamed, it's no longer armor the sheet knows: take it off rather than keep a stale AC
+                    Store.edit { c -> (if (c.isWorn(item)) c.toggleWorn(item) else c).copy(items = c.items.map { if (it.id == id) it.copy(name = n) else it }) }
+                }
+            }),
         ) {
             Row(Modifier.fillMaxWidth().padding(vertical = 0.8f.gridUnitsAsDp()), verticalAlignment = Alignment.CenterVertically) {
                 PadKey("-", Modifier.weight(1f)) { setQty(item.qty - 1) }
@@ -139,11 +135,26 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
                 PadKey("+", Modifier.weight(1f)) { setQty(item.qty + 1) }
             }
             if (item.weight > 0) T("${"%.2f".format(item.weight).trimEnd('0').trimEnd('.')} lb each", Style.Small, dim = true)
+            val c = save.character
+            if (c.wearable(item)) {
+                val worn = c.isWorn(item)
+                TapRow(onClick = { Store.edit { it.toggleWorn(item) } }, Modifier.padding(top = 0.4f.gridUnitsAsDp())) {
+                    T(if (worn) "[x] " else "[ ] ", Style.Mono, dim = !worn)
+                    T(if (item.name == "Shield") "Carrying it" else "Wearing it", Style.Body, Modifier.weight(1f))
+                    T("AC ${c.ac}", Style.Mono)
+                }
+            }
             if (entry != null) {
                 Section(kind.one)
                 T(entry.meta, Style.Small, dim = true)
                 Spacer(Modifier.height(0.4f.gridUnitsAsDp()))
                 Markup(entry.body, onRoll = { roll(it, item.name) })
+            }
+            TapRow(onClick = {
+                Store.edit { c -> (if (c.isWorn(item)) c.toggleWorn(item) else c).copy(items = c.items.filterNot { it.id == id }) }
+                goBack(null)
+            }, Modifier.padding(top = 1f.gridUnitsAsDp())) {
+                T("Remove from bag", Style.Body)
             }
         }
     }

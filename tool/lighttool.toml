@@ -4,7 +4,8 @@ label = "D&D"
 versionCode = 1
 versionName = "0.1.0"
 permissions = []
-capabilities = []
+# tool-manager-provider: the save file is reachable through the Tool Manager (sync with light-web).
+capabilities = ["tool-manager-provider"]
 # Real LP3 hardware binds to the LightOS system app.
 # Use "com.thelightphone.sdk.emulator" for the LightOS emulator instead.
 serverPackage = "com.lightos"

@@ -49,15 +49,17 @@ fun mekTypography() = rememberLightTypography().let { t ->
 }
 
 /**
- * Every screen: a top bar with a back arrow and a title, the content, and up to
- * three page actions along the bottom (the LightOS convention).
+ * Every screen: the top bar (back on the left, the title, the page's one action on the right),
+ * then the content. Back is always in the same corner. Any other action lives in the content,
+ * so most pages have no bottom bar; [bottom] is for the one that earns it (Roll's die),
+ * centred under the thumb.
  */
 @Composable
 fun Page(
     title: String,
     onBack: (() -> Unit)?,
-    bottom: List<LightBarButton?> = emptyList(),
-    right: LightBarButton? = null,
+    action: LightBarButton? = null,
+    bottom: LightBarButton? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val themeColors by LightThemeController.colors.collectAsState()
@@ -70,7 +72,7 @@ fun Page(
             LightTopBar(
                 leftButton = onBack?.let { LightBarButton.LightIcon(icon = LightIcons.BACK, onClick = it) },
                 center = LightTopBarCenter.Text(title),
-                rightButton = right,
+                rightButton = action,
             )
             Box(
                 modifier = Modifier
@@ -78,7 +80,7 @@ fun Page(
                     .fillMaxWidth(),
                 content = content,
             )
-            if (bottom.isNotEmpty()) LightBottomBar(items = bottom)
+            if (bottom != null) LightBottomBar(items = listOf(bottom))
         }
     }
 }
@@ -89,10 +91,9 @@ fun ScrollPage(
     scroll: ScrollState,
     title: String,
     onBack: (() -> Unit)?,
-    bottom: List<LightBarButton?> = emptyList(),
-    right: LightBarButton? = null,
+    action: LightBarButton? = null,
     content: @Composable ColumnScope.() -> Unit,
-) = Page(title, onBack, bottom, right) {
+) = Page(title, onBack, action) {
     LightScrollView(modifier = Modifier.fillMaxSize(), scrollState = scroll) {
         Column(modifier = Modifier.padding(horizontal = GUTTER.gridUnitsAsDp())) {
             content()

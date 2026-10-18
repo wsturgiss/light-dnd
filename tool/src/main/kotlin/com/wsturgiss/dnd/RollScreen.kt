@@ -26,8 +26,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.LightBarButton
+import com.thelightphone.sdk.ui.LightIcon
 import com.thelightphone.sdk.ui.LightIcons
+import com.thelightphone.sdk.ui.lightClickable
 import com.thelightphone.sdk.ui.LightThemeTokens
+import com.wsturgiss.dnd.ui.d20Icon
 import com.wsturgiss.dnd.ui.TOTAL_SCALE
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.wsturgiss.dnd.model.DiceCamera
@@ -40,6 +43,7 @@ import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.ui.DiceClips
 import com.wsturgiss.dnd.ui.DiceStage
 import com.wsturgiss.dnd.ui.GUTTER
+import com.wsturgiss.dnd.ui.KeyValueRow
 import com.wsturgiss.dnd.ui.Page
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.StageDie
@@ -125,11 +129,8 @@ class RollScreen(
         Page(
             title = "Roll",
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.Text("Clear", onClick = ::clear),
-                LightBarButton.Text("Roll", onClick = ::rollNow),
-                LightBarButton.LightIcon(LightIcons.LIST, onClick = { navigateTo(screenFactory = { LogScreen(it) }) }),
-            ),
+            action = LightBarButton.LightIcon(LightIcons.LIST, onClick = { navigateTo(screenFactory = { LogScreen(it) }) }),
+            bottom = LightBarButton.Icon(d20Icon(), onClick = ::rollNow, contentDescription = "Roll"),
         ) {
             Column(
                 Modifier
@@ -321,6 +322,16 @@ class RollScreen(
                 maxLines = 1,
             )
             if (edge != Edge.None) T(if (edge == Edge.Advantage) "ADV" else "DIS", Style.Mono)
+            // clears the expression and the result; only there when there's something to clear
+            if (e != null || result != null || edge != Edge.None) {
+                Box(
+                    Modifier
+                        .lightClickable(onClick = ::clear)
+                        .padding(start = 0.6f.gridUnitsAsDp(), top = 0.3f.gridUnitsAsDp(), bottom = 0.3f.gridUnitsAsDp()),
+                ) {
+                    LightIcon(LightIcons.CLOSE, size = 1.2f, contentDescription = "Clear")
+                }
+            }
         }
     }
 
@@ -358,11 +369,9 @@ class LogScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
             scroll,
             title = "Roll log",
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.Text("Dice: ${save.diceCamera.label}", onClick = { Store.cycleDiceCamera() }),
-                LightBarButton.Text("Clear log", onClick = { Store.clearLog() }),
-            ),
+            action = LightBarButton.LightIcon(LightIcons.CLOSE, onClick = { Store.clearLog() }, contentDescription = "Clear log"),
         ) {
+            KeyValueRow("Dice animation", save.diceCamera.label, onClick = { Store.cycleDiceCamera() })
             if (save.log.isEmpty()) T("Nothing rolled yet.", Style.Body, dim = true, modifier = Modifier.padding(top = 1f.gridUnitsAsDp()))
             save.log.forEach { r ->
                 TapRow(onClick = { roll(RollRequest(r.expr, r.label, r.edge)) }) {

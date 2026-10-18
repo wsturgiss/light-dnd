@@ -18,6 +18,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.text.BasicText
 import com.thelightphone.sdk.InitialScreen
 import com.thelightphone.sdk.SealedLightActivity
+import com.thelightphone.sdk.ui.LightBarButton
+import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.wsturgiss.dnd.model.Store
@@ -44,7 +46,11 @@ class HomeScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
         val c = save.character
         val last = save.log.firstOrNull()
 
-        Page(title = "D&D", onBack = null) {
+        Page(
+            title = "D&D",
+            onBack = null,
+            action = LightBarButton.LightIcon(LightIcons.CONTACTS, onClick = { navigateTo(screenFactory = { CharactersScreen(it) }) }),
+        ) {
             Column(
                 Modifier
                     .fillMaxSize()
@@ -78,6 +84,9 @@ class HomeScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
                     ?.joinToString("  ") { "${it.index + 1}:${it.value.left}" }
                     ?: "${c.spells.size} known") {
                     navigateTo(screenFactory = { SpellsScreen(it) })
+                }
+                Menu("Features", c.feats.size.let { n -> "${c.species.ifEmpty { "traits" }}${if (n > 0) "  ·  $n feat${if (n == 1) "" else "s"}" else ""}" }) {
+                    navigateTo(screenFactory = { FeaturesScreen(it) })
                 }
                 Menu("Look up", "spells, monsters, rules") {
                     navigateTo(screenFactory = { LookupScreen(it) })

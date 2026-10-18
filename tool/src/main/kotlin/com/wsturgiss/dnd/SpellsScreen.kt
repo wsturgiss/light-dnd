@@ -48,11 +48,9 @@ class SpellsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
             scroll,
             title = "Spells",
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.LightIcon(LightIcons.ADD, onClick = {
-                    navigateTo(screenFactory = { EntryListScreen(it, listOf(Kind.Spells), "Add spells", classFilter = c.className) })
-                }),
-            ),
+            action = LightBarButton.LightIcon(LightIcons.ADD, onClick = {
+                navigateTo(screenFactory = { EntryListScreen(it, listOf(Kind.Spells), "Add spells", classFilter = c.className) })
+            }),
         ) {
             castingAbility(c.className)?.let { a ->
                 val attack = c.mod(a) + c.proficiency

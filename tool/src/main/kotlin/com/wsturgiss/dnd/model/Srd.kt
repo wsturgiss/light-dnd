@@ -28,6 +28,9 @@ enum class Kind(val file: String, val label: String, val one: String) {
     Conditions("conditions", "Conditions", "condition"),
     MagicItems("magic-items", "Magic items", "magic item"),
     Equipment("equipment", "Equipment", "item"),
+    Species("species", "Species", "species"),
+    Feats("feats", "Feats", "feat"),
+    Features("features", "Class features", "class feature"),
     Rules("rules", "Rules", "rule"),
     ;
 
@@ -40,6 +43,18 @@ enum class Kind(val file: String, val label: String, val one: String) {
 object Srd {
     private val json = Json { ignoreUnknownKeys = true }
     private val cache = ConcurrentHashMap<Kind, List<Entry>>()
+    @Volatile private var gear: Map<String, List<GearOption>>? = null
+    @Volatile private var made: Creation? = null
+
+    /** What the character builder and Level up choose from (see `data/build_srd.py`, `creation`). */
+    fun creation(context: SealedLightContext): Creation = made ?: json
+        .decodeFromString<Creation>(context.readAsset("srd/creation.json").decodeToString())
+        .also { made = it }
+
+    /** Starting-equipment options by class or background name, in book order (A, B, C). */
+    fun startingGear(context: SealedLightContext): Map<String, List<GearOption>> = gear ?: json
+        .decodeFromString<Map<String, List<GearOption>>>(context.readAsset("srd/starting-gear.json").decodeToString())
+        .also { gear = it }
 
     fun load(context: SealedLightContext, kind: Kind): List<Entry> = cache.getOrPut(kind) {
         json.decodeFromString(context.readAsset("srd/${kind.file}.json").decodeToString())

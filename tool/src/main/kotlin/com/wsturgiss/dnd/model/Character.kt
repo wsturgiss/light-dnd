@@ -1,5 +1,6 @@
 package com.wsturgiss.dnd.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 enum class Ability(val short: String, val long: String) {
@@ -61,6 +62,10 @@ data class Item(
     val srdKind: String? = null,
 )
 
+/** A feat taken, by its Look up name, and what it was taken for ("Cleric" for Magic Initiate). */
+@Serializable
+data class Feat(val name: String, val note: String = "")
+
 /** Spell slots for one level: how many there are and how many are spent. */
 @Serializable
 data class Slots(val max: Int = 0, val used: Int = 0) {
@@ -72,13 +77,30 @@ data class Character(
     val name: String = "Nameless",
     val className: String = "Fighter",
     val level: Int = 1,
+    /** From the builder; blank on characters made before it, or by hand. */
+    val species: String = "",
+    /** The species' sub-choice, as its Look up name ("Elven Lineage: High Elf"); blank for none. */
+    val lineage: String = "",
+    val background: String = "",
+    /** Chosen at 3rd level; blank before. */
+    val subclass: String = "",
+    val feats: List<Feat> = emptyList(),
+    val languages: List<String> = emptyList(),
+    /** Armor, weapons and tools the character is trained with, as words ("Martial Weapons"). */
+    val training: List<String> = emptyList(),
     val scores: Map<Ability, Int> = Ability.entries.associateWith { 10 },
     val saves: Set<Ability> = emptySet(),
     val skills: Map<Skill, Training> = emptyMap(),
     val maxHp: Int = 10,
     val hp: Int = 10,
     val tempHp: Int = 0,
-    val ac: Int = 10,
+    /** The worn armor, by name (one of [ARMOR]); null for none. */
+    val wearing: String? = null,
+    val shield: Boolean = false,
+    /** AC from anything the sheet can't see: a magic ring, +1 armor, a spell. */
+    val acBonus: Int = 0,
+    /** AC as a typed number, from saves before AC was worked out. Read once by [Store], then dropped. */
+    @SerialName("ac") val legacyAc: Int? = null,
     val speed: Int = 30,
     val conditions: Set<String> = emptySet(),
     val slots: List<Slots> = List(9) { Slots() },
@@ -93,6 +115,23 @@ data class Character(
     fun save(a: Ability): Int = mod(a) + if (a in saves) proficiency else 0
     fun training(s: Skill): Training = skills[s] ?: Training.None
     fun skill(s: Skill): Int = mod(s.ability) + proficiency * training(s).multiplier
+
+    /** Worn armor, DEX, shield and Unarmored Defense, worked out; the Defense style's +1 in armor; plus [acBonus]. */
+    val ac: Int
+        get() = armorClass(ARMOR.find { it.name == wearing } ?: ARMOR.first(), shield, scores, classInfo(className)) +
+            (if (wearing != null && feats.any { it.name == "Defense" }) 1 else 0) + acBonus
+
+    /** The bag item is armor or a shield, so it can be worn. */
+    fun wearable(item: Item): Boolean = item.name == "Shield" || ARMOR.any { it.name == item.name && it.weight != ArmorWeight.None }
+
+    fun isWorn(item: Item): Boolean = item.name == wearing || (item.name == "Shield" && shield)
+
+    /** Puts [item] on, or takes it off: one suit of armor at a time, and one shield. */
+    fun toggleWorn(item: Item): Character = when {
+        item.name == "Shield" -> copy(shield = !shield)
+        item.name == wearing -> copy(wearing = null)
+        else -> copy(wearing = item.name)
+    }
 
     val initiative: Int get() = mod(Ability.DEX)
     val passivePerception: Int get() = 10 + skill(Skill.Perception)
@@ -118,6 +157,20 @@ data class Character(
     )
 }
 
+/**
+ * A character from before AC was worked out keeps the number it had. Whichever armor and shield
+ * in the bag come closest to explaining it are put on; the rest becomes [Character.acBonus].
+ */
+fun Character.fromTypedAc(): Character {
+    val typed = legacyAc ?: return this
+    val bare = copy(legacyAc = null, acBonus = 0, wearing = null, shield = false)
+    val armors = listOf<String?>(null) + items.map { it.name }.filter { n -> ARMOR.any { it.name == n && it.weight != ArmorWeight.None } }
+    val shields = listOf(false) + listOfNotNull(true.takeIf { items.any { it.name == "Shield" } })
+    val best = armors.flatMap { a -> shields.map { s -> bare.copy(wearing = a, shield = s) } }
+        .minBy { kotlin.math.abs(typed - it.ac) }
+    return best.copy(acBonus = typed - best.ac)
+}
+
 fun signed(n: Int): String = if (n >= 0) "+$n" else "$n"
 
 /** Pact magic and multiclassing aside, this is the full caster table — a sensible default to edit from. */
@@ -127,9 +180,4 @@ val FULL_CASTER_SLOTS: List<List<Int>> = listOf(
     listOf(4, 3, 3, 3, 2, 1), listOf(4, 3, 3, 3, 2, 1), listOf(4, 3, 3, 3, 2, 1, 1), listOf(4, 3, 3, 3, 2, 1, 1),
     listOf(4, 3, 3, 3, 2, 1, 1, 1), listOf(4, 3, 3, 3, 2, 1, 1, 1), listOf(4, 3, 3, 3, 2, 1, 1, 1, 1),
     listOf(4, 3, 3, 3, 3, 1, 1, 1, 1), listOf(4, 3, 3, 3, 3, 2, 1, 1, 1), listOf(4, 3, 3, 3, 3, 2, 2, 1, 1),
-)
-
-val CLASSES = listOf(
-    "Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk",
-    "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard",
 )

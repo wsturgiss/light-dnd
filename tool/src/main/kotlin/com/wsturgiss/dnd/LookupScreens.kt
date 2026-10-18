@@ -46,13 +46,11 @@ class LookupScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
             scroll,
             title = "Look up",
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.LightIcon(LightIcons.SEARCH, onClick = {
-                    askText("Search everything") { q ->
-                        navigateTo(screenFactory = { EntryListScreen(it, Kind.entries, "Search", initialQuery = q) })
-                    }
-                }),
-            ),
+            action = LightBarButton.LightIcon(LightIcons.SEARCH, onClick = {
+                askText("Search everything") { q ->
+                    navigateTo(screenFactory = { EntryListScreen(it, Kind.entries, "Search", initialQuery = q) })
+                }
+            }),
         ) {
             Spacer(Modifier.height(0.5f.gridUnitsAsDp()))
             Kind.entries.forEach { kind ->
@@ -118,9 +116,7 @@ class EntryListScreen(
         Page(
             title = title,
             onBack = { goBack(null) },
-            bottom = listOf(
-                LightBarButton.LightIcon(LightIcons.SEARCH, onClick = { askText("Search ${title.lowercase()}", query) { query = it } }),
-            ),
+            action = LightBarButton.LightIcon(LightIcons.SEARCH, onClick = { askText("Search ${title.lowercase()}", query) { query = it } }),
         ) {
             Column(Modifier.fillMaxSize()) {
                 Column(Modifier.padding(horizontal = GUTTER.gridUnitsAsDp())) {
@@ -213,8 +209,8 @@ class EntryListScreen(
 }
 
 /**
- * One SRD entry. Dice in the text roll when tapped. The bottom bar does the one
- * thing that fits the kind: star a spell, bag an item, put a condition on.
+ * One SRD entry. Dice in the text roll when tapped. The top-right action does the one
+ * thing that fits the kind: star a spell, bag an item. A condition gets a checkbox instead.
  */
 class EntryScreen(
     sealedActivity: SealedLightActivity,
@@ -238,22 +234,25 @@ class EntryScreen(
                     Store.edit { it.copy(spells = if (mine) it.spells - e.name else it.spells + e.name) }
                 })
             }
-            Kind.Equipment, Kind.MagicItems -> LightBarButton.Text("Add to bag", onClick = {
+            Kind.Equipment, Kind.MagicItems -> LightBarButton.LightIcon(LightIcons.ADD, contentDescription = "Add to bag", onClick = {
                 Store.addItem(e.name, e.weight ?: 0.0, kind.file)
             })
-            Kind.Conditions -> {
-                val on = e.name in c.conditions
-                LightBarButton.Text(if (on) "Clear it" else "I'm ${e.name.lowercase()}", onClick = {
-                    Store.edit { it.copy(conditions = if (on) it.conditions - e.name else it.conditions + e.name) }
-                })
-            }
             else -> null
         }
         val inBag = c.items.find { it.name.equals(e.name, ignoreCase = true) }?.qty
 
-        ScrollPage(scroll, title = kind.label, onBack = { goBack(null) }, bottom = listOfNotNull(action)) {
+        ScrollPage(scroll, title = kind.label, onBack = { goBack(null) }, action = action) {
             T(e.name, Style.Banner, Modifier.padding(top = 0.5f.gridUnitsAsDp()))
             T(e.meta, Style.Small, dim = true)
+            if (kind == Kind.Conditions) {
+                val on = e.name in c.conditions
+                TapRow(onClick = {
+                    Store.edit { it.copy(conditions = if (on) it.conditions - e.name else it.conditions + e.name) }
+                }) {
+                    T(if (on) "[x] " else "[ ] ", Style.Mono, dim = !on)
+                    T("On you", Style.Body)
+                }
+            }
             when {
                 kind == Kind.Spells && e.name in c.spells -> T("* in your spells", Style.MonoSmall)
                 inBag != null && (kind == Kind.Equipment || kind == Kind.MagicItems) -> T("x$inBag in your bag", Style.MonoSmall)

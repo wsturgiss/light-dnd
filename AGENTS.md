@@ -19,5 +19,8 @@ System Java 26 breaks Android jlink. The unit tests cover `model/` only; UI need
   (`Banner`: headings and names, never numbers). Only VGA has box-drawing; elsewhere use `[x]`/`[ ]`,
   `*`, `·`, `›`, or draw it in Compose. Keep VGA unmodified (CC BY-SA).
 - State lives in `Store` (one JSON file). Change it with `Store.edit { }`; don't hold copies.
+  The file is `files/shared/save/character.json`, shared through the Tool Manager so light-web can
+  sync it (and LightOS backup can see it). A sync replaces it underneath the tool, so anything else
+  you persist goes in that folder as a file too, and `Store.reload()` must pick it back up.
 - SRD content comes from `data/build_srd.py`. Change the script and regenerate; don't hand-edit
   `assets/srd/*.json`.

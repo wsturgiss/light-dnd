@@ -22,7 +22,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.rememberKeyboardOptions
-import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightTextInputEditor
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
@@ -35,7 +34,7 @@ import com.wsturgiss.dnd.ui.Style
 import com.wsturgiss.dnd.ui.T
 
 /**
- * A number to ask for. [actions] become the bottom-bar buttons (at most three),
+ * A number to ask for. [actions] are what to do with it, a row of keys over the pad,
  * so one pad can do Damage / Heal / Temp, or Add / Spend / Set.
  */
 data class NumberRequest(
@@ -66,13 +65,7 @@ class NumberPadScreen(
     @Composable
     override fun Content() {
         val value = entry.toIntOrNull()
-        Page(
-            title = request.title,
-            onBack = { goBack(null) },
-            bottom = request.actions.mapIndexed { i, label ->
-                LightBarButton.Text(label, onClick = { value?.let { goBack(NumberResult(i, it)) } })
-            },
-        ) {
+        Page(title = request.title, onBack = { goBack(null) }) {
             Column(
                 Modifier
                     .fillMaxSize()
@@ -87,6 +80,14 @@ class NumberPadScreen(
                 ) {
                     T(entry.ifEmpty { "_" }, Style.Total, dim = entry.isEmpty())
                 }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.4f.gridUnitsAsDp())) {
+                    request.actions.forEachIndexed { i, label ->
+                        PadKey(label.uppercase(), Modifier.weight(1f), enabled = value != null) {
+                            value?.let { goBack(NumberResult(i, it)) }
+                        }
+                    }
+                }
+                Box(Modifier.height(0.4f.gridUnitsAsDp()))
                 val third = if (request.allowNegative) "-" else ""
                 listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf(third, "0", "<"))
                     .forEach { row ->
