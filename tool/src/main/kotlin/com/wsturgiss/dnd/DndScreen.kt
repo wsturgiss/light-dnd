@@ -8,7 +8,13 @@ import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Store
 
 /** What to roll when a screen asks for one: an expression and what it was for. */
-data class RollRequest(val expr: String, val label: String, val edge: Edge = Edge.None)
+data class RollRequest(
+    val expr: String,
+    val label: String,
+    val edge: Edge = Edge.None,
+    /** What imposes disadvantage on this roll ("Chain Mail"), on top of any ADV/DIS tapped. */
+    val disadvantageFrom: List<String> = emptyList(),
+)
 
 /** Base for every screen here: makes sure the save file is loaded, and holds the common jumps. */
 abstract class DndScreen<R>(sealedActivity: SealedLightActivity) : SimpleLightScreen<R>(sealedActivity) {

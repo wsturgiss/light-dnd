@@ -5,6 +5,18 @@ import kotlin.random.Random
 /** Rolling a d20 twice and keeping one. Only ever applied to a lone d20 term. */
 enum class Edge { None, Advantage, Disadvantage }
 
+/** Every source at once, as in 5e: any advantage and any disadvantage cancel to a straight roll. */
+fun combinedEdge(edges: Iterable<Edge>): Edge {
+    val adv = Edge.Advantage in edges
+    val dis = Edge.Disadvantage in edges
+    return when {
+        adv && dis -> Edge.None
+        adv -> Edge.Advantage
+        dis -> Edge.Disadvantage
+        else -> Edge.None
+    }
+}
+
 /**
  * A dice expression: a sum of terms, each either `NdM` or a flat number.
  *

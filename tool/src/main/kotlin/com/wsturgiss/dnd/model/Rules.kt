@@ -182,22 +182,29 @@ fun bonusLabel(bonus: Map<Ability, Int>): String =
 
 enum class ArmorWeight { None, Light, Medium, Heavy }
 
-data class Armor(val name: String, val base: Int, val weight: ArmorWeight, val pounds: Double)
+data class Armor(
+    val name: String,
+    val base: Int,
+    val weight: ArmorWeight,
+    val pounds: Double,
+    /** Disadvantage on Stealth checks while worn, as the SRD marks it. */
+    val stealthDisadvantage: Boolean = false,
+)
 
 val ARMOR: List<Armor> = listOf(
     Armor("No armor", 10, ArmorWeight.None, 0.0),
-    Armor("Padded Armor", 11, ArmorWeight.Light, 8.0),
+    Armor("Padded Armor", 11, ArmorWeight.Light, 8.0, stealthDisadvantage = true),
     Armor("Leather Armor", 11, ArmorWeight.Light, 10.0),
     Armor("Studded Leather Armor", 12, ArmorWeight.Light, 13.0),
     Armor("Hide Armor", 12, ArmorWeight.Medium, 12.0),
     Armor("Chain Shirt", 13, ArmorWeight.Medium, 14.0),
-    Armor("Scale Mail", 14, ArmorWeight.Medium, 45.0),
+    Armor("Scale Mail", 14, ArmorWeight.Medium, 45.0, stealthDisadvantage = true),
     Armor("Breastplate", 14, ArmorWeight.Medium, 20.0),
-    Armor("Half-Plate Armor", 15, ArmorWeight.Medium, 40.0),
-    Armor("Ring Mail", 14, ArmorWeight.Heavy, 40.0),
-    Armor("Chain Mail", 16, ArmorWeight.Heavy, 55.0),
-    Armor("Splint Armor", 17, ArmorWeight.Heavy, 60.0),
-    Armor("Plate Armor", 18, ArmorWeight.Heavy, 65.0),
+    Armor("Half-Plate Armor", 15, ArmorWeight.Medium, 40.0, stealthDisadvantage = true),
+    Armor("Ring Mail", 14, ArmorWeight.Heavy, 40.0, stealthDisadvantage = true),
+    Armor("Chain Mail", 16, ArmorWeight.Heavy, 55.0, stealthDisadvantage = true),
+    Armor("Splint Armor", 17, ArmorWeight.Heavy, 60.0, stealthDisadvantage = true),
+    Armor("Plate Armor", 18, ArmorWeight.Heavy, 65.0, stealthDisadvantage = true),
 )
 
 /** AC from armor and scores. Unarmored Defense only counts with no armor (a Monk's also needs no shield). */
