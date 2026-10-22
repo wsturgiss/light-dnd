@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightBottomBar
@@ -121,14 +123,26 @@ fun TapRow(
     )
 }
 
-/** A label on the left, a value on the right: the shape of most sheet rows. */
+/**
+ * A label on the left, a value on the right: the shape of most sheet rows. A long value (a list
+ * of feats) stops at [VALUE_MAX_WIDTH], two lines and then "…", so the label always shows.
+ */
 @Composable
 fun KeyValueRow(key: String, value: String, onClick: (() -> Unit)?, keyStyle: Style = Style.Body, valueStyle: Style = Style.Mono) {
     TapRow(onClick) {
         T(key, keyStyle, Modifier.weight(1f), maxLines = 1)
-        T(value, valueStyle)
+        T(
+            value,
+            valueStyle,
+            Modifier.padding(start = 0.5f.gridUnitsAsDp()).widthIn(max = VALUE_MAX_WIDTH.gridUnitsAsDp()),
+            align = TextAlign.End,
+            maxLines = 2,
+        )
     }
 }
+
+/** The widest a [KeyValueRow]'s value gets, in grid units: a bit over half the 24.5 between the margins. */
+private const val VALUE_MAX_WIDTH = 14f
 
 /** A section heading in Jacquard, with a rule under it. */
 @Composable
