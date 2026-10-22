@@ -387,6 +387,10 @@ fun validScore(v: Int): Boolean = v in SCORE_RANGE
 
 fun validHp(v: Int, level: Int = 1): Boolean = v in hpRange(level)
 
+/** Why a typed max HP isn't kept, for the row it was typed on; null when it's fine. */
+fun hpRefusal(v: Int, level: Int): String? =
+    hpRange(level).takeUnless { v in it }?.let { "HP must be ${it.first} to ${it.last} at level $level; $v wasn't kept." }
+
 /**
  * A character being built. Fields left null follow the suggestion for the class and background,
  * so changing class re-deals the scores until you set them yourself.

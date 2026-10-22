@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.gridUnitsAsDp
@@ -18,6 +20,7 @@ import com.wsturgiss.dnd.model.slotsFor
 import com.wsturgiss.dnd.model.Character
 import com.wsturgiss.dnd.model.FULL_CASTER_SLOTS
 import com.wsturgiss.dnd.model.hpRange
+import com.wsturgiss.dnd.model.hpRefusal
 import com.wsturgiss.dnd.model.SCORE_RANGE
 import com.wsturgiss.dnd.model.Skill
 import com.wsturgiss.dnd.model.Slots
@@ -30,6 +33,7 @@ import com.wsturgiss.dnd.model.choiceName
 import com.wsturgiss.dnd.model.Training
 import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.ui.KeyValueRow
+import com.wsturgiss.dnd.ui.Refusal
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.Section
 import com.wsturgiss.dnd.ui.Style
@@ -41,6 +45,9 @@ import com.wsturgiss.dnd.ui.TapRow
  * proficiencies and slots sit one tap down, each behind a row that sums them up.
  */
 class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedActivity) {
+
+    /** Why the max HP last typed wasn't kept; null once one is. */
+    private var hpRefused by mutableStateOf<String?>(null)
 
     @Composable
     override fun Content() {
@@ -82,7 +89,15 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
             }
 
             Section("Combat")
-            NumberRow("Max HP", c.maxHp, hpRange(c.level)) { v -> Store.edit { it.copy(maxHp = v, hp = minOf(it.hp, v)) } }
+            // too low for the level is refused, as when typing your own at creation, not raised to fit
+            KeyValueRow("Max HP", c.maxHp.toString(), {
+                val range = hpRange(c.level)
+                askNumber(NumberRequest("Max HP", "${range.first} to ${range.last}: at least 1 a level.", c.maxHp)) { r ->
+                    hpRefused = hpRefusal(r.value, c.level)
+                    if (hpRefused == null) Store.edit { it.copy(maxHp = r.value, hp = minOf(it.hp, r.value)) }
+                }
+            })
+            Refusal(hpRefused)
             KeyValueRow("AC bonus", signed(c.acBonus), {
                 askNumber(
                     NumberRequest(

@@ -1,5 +1,6 @@
 package com.wsturgiss.dnd.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,9 +17,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -143,6 +149,22 @@ fun KeyValueRow(key: String, value: String, onClick: (() -> Unit)?, keyStyle: St
 
 /** The widest a [KeyValueRow]'s value gets, in grid units: a bit over half the 24.5 between the margins. */
 private const val VALUE_MAX_WIDTH = 14f
+
+/**
+ * What the pad refused, under the row it's about, scrolled into view: back from the pad the page
+ * is where it was, and a row near the bottom would leave it under the edge. Null shows nothing.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Refusal(text: String?) {
+    if (text == null) return
+    val bring = remember { BringIntoViewRequester() }
+    T(text, Style.Body, modifier = Modifier.bringIntoViewRequester(bring).padding(vertical = 0.3f.gridUnitsAsDp()))
+    LaunchedEffect(text) {
+        withFrameNanos { }
+        bring.bringIntoView()
+    }
+}
 
 /** A section heading in Jacquard, with a rule under it. */
 @Composable

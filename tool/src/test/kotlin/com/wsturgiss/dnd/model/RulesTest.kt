@@ -553,4 +553,14 @@ class RulesTest {
         assertEquals(25, Draft(species = "Dwarf").build().baseSpeed)
         assertEquals(30, Draft(species = "Human").build().baseSpeed)
     }
+
+    @Test
+    fun maxHpTooLowForTheLevelIsRefusedWithAReason() {
+        // Edit and Your own say the same thing: 3 at level 4 isn't kept, not raised to 4
+        assertEquals("HP must be 4 to 999 at level 4; 3 wasn't kept.", hpRefusal(3, 4))
+        assertNull(hpRefusal(4, 4))
+        assertNull(hpRefusal(999, 20))
+        assertEquals("HP must be 1 to 999 at level 1; 1000 wasn't kept.", hpRefusal(1000, 1))
+        assertEquals("HP must be 1 to 999 at level 1; 0 wasn't kept.", hpRefusal(0, 1))
+    }
 }

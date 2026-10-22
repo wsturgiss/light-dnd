@@ -1,19 +1,13 @@
 package com.wsturgiss.dnd
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import com.thelightphone.sdk.SealedLightActivity
@@ -44,7 +38,7 @@ import com.wsturgiss.dnd.model.SPECIES
 import com.wsturgiss.dnd.model.STANDARD_ARRAY
 import com.wsturgiss.dnd.model.hpRange
 import com.wsturgiss.dnd.model.SCORE_RANGE
-import com.wsturgiss.dnd.model.validHp
+import com.wsturgiss.dnd.model.hpRefusal
 import com.wsturgiss.dnd.model.validScore
 import com.wsturgiss.dnd.model.Store
 import com.wsturgiss.dnd.model.backgroundBonuses
@@ -55,6 +49,7 @@ import com.wsturgiss.dnd.model.rollScores
 import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.model.slotsFor
 import com.wsturgiss.dnd.ui.KeyValueRow
+import com.wsturgiss.dnd.ui.Refusal
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.Section
 import com.wsturgiss.dnd.ui.Style
@@ -634,22 +629,9 @@ class ManualStatsScreen(
     /** A value the pad refused: which row (an [Ability] name or [HP_ROW]) and why. */
     private var error by mutableStateOf<Pair<String, String>?>(null)
 
-    /**
-     * The refusal, under the row it's about, scrolled into view: back from the pad the page is
-     * where it was, and a row near the bottom would leave it under the edge.
-     */
-    @OptIn(ExperimentalFoundationApi::class)
+    /** The refusal, under the row it's about. */
     @Composable
-    private fun ErrorFor(row: String) {
-        val (at, text) = error ?: return
-        if (at != row) return
-        val bring = remember { BringIntoViewRequester() }
-        T(text, Style.Body, modifier = Modifier.bringIntoViewRequester(bring).padding(vertical = 0.3f.gridUnitsAsDp()))
-        LaunchedEffect(error) {
-            withFrameNanos { }
-            bring.bringIntoView()
-        }
-    }
+    private fun ErrorFor(row: String) = Refusal(error?.takeIf { it.first == row }?.second)
 
     /** Typed, or worked out by the rules from the scores as they stand here. */
     private val hp: Int get() = typedHp ?: draft.copy(manualScores = scores.takeIf { scoresTyped }, manualHp = null).maxHp
@@ -689,12 +671,9 @@ class ManualStatsScreen(
             TapRow(onClick = {
                 val range = hpRange(draft.level)
                 askNumber(NumberRequest("Max HP", "${range.first} to ${range.last}: at least 1 a level.", hp)) { r ->
-                    if (validHp(r.value, draft.level)) {
-                        typedHp = r.value
-                        error = null
-                    } else {
-                        error = HP_ROW to "HP must be ${range.first} to ${range.last} at level ${draft.level}; ${r.value} wasn't kept."
-                    }
+                    val refused = hpRefusal(r.value, draft.level)
+                    if (refused == null) typedHp = r.value
+                    error = refused?.let { HP_ROW to it }
                 }
             }) {
                 T("Max HP", Style.Body, Modifier.weight(1f))
