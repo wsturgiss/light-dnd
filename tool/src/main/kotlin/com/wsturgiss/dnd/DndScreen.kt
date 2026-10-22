@@ -14,6 +14,8 @@ data class RollRequest(
     val edge: Edge = Edge.None,
     /** What imposes disadvantage on this roll ("Chain Mail"), on top of any ADV/DIS tapped. */
     val disadvantageFrom: List<String> = emptyList(),
+    /** What gives it advantage ("Remarkable Athlete"); against [disadvantageFrom] they cancel. */
+    val advantageFrom: List<String> = emptyList(),
 )
 
 /** Base for every screen here: makes sure the save file is loaded, and holds the common jumps. */

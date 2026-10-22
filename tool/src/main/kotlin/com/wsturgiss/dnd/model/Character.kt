@@ -187,7 +187,19 @@ data class Character(
     fun mod(a: Ability): Int = Math.floorDiv(score(a) - 10, 2)
     fun save(a: Ability): Int = mod(a) + if (a in saves) proficiency else 0
     fun training(s: Skill): Training = skills[s] ?: Training.None
-    fun skill(s: Skill): Int = mod(s.ability) + proficiency * training(s).multiplier
+    fun skill(s: Skill): Int =
+        mod(s.ability) + proficiency * training(s).multiplier + if (training(s) == Training.None && jackOfAllTrades) proficiency / 2 else 0
+
+    /** Bard, 2nd level: half the proficiency bonus, rounded down, on checks with a skill you aren't proficient in. */
+    val jackOfAllTrades: Boolean get() = levelIn("Bard") >= 2
+
+    /** Champion, 3rd level (2024): advantage on Initiative and on Strength (Athletics) checks. */
+    val remarkableAthlete: Boolean get() = levelIn("Fighter") >= 3 && subclassOf("Fighter") == "Champion"
+
+    /** What gives [test] advantage, by name. */
+    fun advantageFrom(test: D20Test): List<String> = buildList {
+        if (remarkableAthlete && (test == D20Test.Initiative || test is D20Test.Check && test.skill == Skill.Athletics)) add("Remarkable Athlete")
+    }
 
     /** Worn armor, DEX, shield and Unarmored Defense, worked out; the Defense style's +1 in armor; plus [acBonus]. */
     val ac: Int

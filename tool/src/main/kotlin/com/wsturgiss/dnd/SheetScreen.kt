@@ -107,6 +107,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             val stealthDis = c.stealthDisadvantageFrom
             Skill.entries.forEach { s ->
                 val dis = c.disadvantageFrom(D20Test.Check(s.ability, s))
+                val adv = c.advantageFrom(D20Test.Check(s.ability, s))
                 TapRow(onClick = { roll(c.request("d20${signed(c.skill(s))}", s.label, D20Test.Check(s.ability, s))) }) {
                     // the same marks as the saves; Edit keeps the checkboxes, since there they're toggles
                     val mark = when (c.training(s)) {
@@ -116,6 +117,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
                     }
                     T("$mark ", Style.Mono)
                     T(s.label, Style.Body, Modifier.weight(1f), maxLines = 1)
+                    if (adv.isNotEmpty()) T("ADV ", Style.MonoSmall)
                     if (dis.isNotEmpty()) T("DIS ", Style.MonoSmall)
                     T(s.ability.short.lowercase() + " ", Style.MonoSmall, dim = true)
                     T(signed(c.skill(s)).padStart(3), Style.Mono)
@@ -123,12 +125,14 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             }
             T("P proficient   E expertise", Style.Small, dim = true, modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()))
             if (stealthDis.isNotEmpty()) T("DIS on Stealth: ${stealthDis.joinToString(", ")}", Style.Small, dim = true)
+            if (c.remarkableAthlete) T("ADV on Initiative and Athletics: Remarkable Athlete", Style.Small, dim = true)
+            if (c.jackOfAllTrades) T("Jack of All Trades: ${signed(c.proficiency / 2)} on skills without P", Style.Small, dim = true)
         }
     }
 
-    /** A roll of [test], with what gives it disadvantage. */
+    /** A roll of [test], with what gives it advantage or disadvantage. */
     private fun Character.request(expr: String, label: String, test: D20Test) =
-        RollRequest(expr, label, disadvantageFrom = disadvantageFrom(test))
+        RollRequest(expr, label, disadvantageFrom = disadvantageFrom(test), advantageFrom = advantageFrom(test))
 
     @Composable
     private fun Stat(label: String, value: String, modifier: Modifier, onClick: (() -> Unit)?) {

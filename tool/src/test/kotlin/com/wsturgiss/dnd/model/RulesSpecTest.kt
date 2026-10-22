@@ -265,11 +265,30 @@ class RulesSpecTest {
         assertEquals(7, hagar.skill(Skill.Athletics))
     }
 
-    @Ignore("NOT IMPLEMENTED: no Jack of All Trades (half PB on untrained checks) or Remarkable Athlete")
     @Test
     fun G4_jackOfAllTradesHalfProficiency() {
         val bard = Character(className = "Bard", level = 5)
         assertEquals(1, bard.skill(Skill.Athletics))
+        // not on top of proficiency; not at 1st level; a multiclass bard's bard levels count
+        assertEquals(3, bard.copy(skills = mapOf(Skill.Athletics to Training.Proficient)).skill(Skill.Athletics))
+        assertEquals(0, Character(className = "Bard", level = 1).skill(Skill.Athletics))
+        assertEquals(1, Character(className = "Fighter", level = 5, multiclass = listOf(ClassLevel("Bard", 2))).skill(Skill.Athletics))
+        assertEquals(0, Character(className = "Fighter", level = 5).skill(Skill.Athletics))
+        // passive Perception is a check, so it counts there too
+        assertEquals(11, bard.passivePerception)
+    }
+
+    @Test
+    fun G4_remarkableAthleteAdvantageOnInitiativeAndAthletics() {
+        // 2024: advantage, not half proficiency, so the numbers don't change
+        assertTrue(hagar.remarkableAthlete)
+        assertEquals(listOf("Remarkable Athlete"), hagar.advantageFrom(D20Test.Initiative))
+        assertEquals(listOf("Remarkable Athlete"), hagar.advantageFrom(D20Test.Check(Ability.STR, Skill.Athletics)))
+        assertEquals(emptyList(), hagar.advantageFrom(D20Test.Check(Ability.STR)))
+        assertEquals(emptyList(), hagar.advantageFrom(D20Test.Check(Ability.DEX, Skill.Acrobatics)))
+        assertEquals(hagar.mod(Ability.DEX), hagar.initiative)
+        assertFalse(Character(className = "Fighter", level = 2, subclass = "Champion").remarkableAthlete)
+        assertFalse(Character(className = "Fighter", level = 5, subclass = "Battle Master").remarkableAthlete)
     }
 
     // H. Dice
