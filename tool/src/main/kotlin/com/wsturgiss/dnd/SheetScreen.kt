@@ -17,6 +17,8 @@ import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
 import com.wsturgiss.dnd.model.Ability
+import com.wsturgiss.dnd.model.Character
+import com.wsturgiss.dnd.model.D20Test
 import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Skill
 import com.wsturgiss.dnd.model.Store
@@ -62,7 +64,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             }
             Row(Modifier.fillMaxWidth()) {
                 Stat("AC", c.ac.toString(), Modifier.weight(1f), null)
-                Stat("INIT", signed(c.initiative), Modifier.weight(1f)) { roll("d20${signed(c.initiative)}", "Initiative") }
+                Stat("INIT", signed(c.initiative), Modifier.weight(1f)) { roll(c.request("d20${signed(c.initiative)}", "Initiative", D20Test.Initiative)) }
                 Stat("SPEED", "${c.speed}", Modifier.weight(1f), null)
                 Stat("PASSIVE", "${c.passivePerception}", Modifier.weight(1f), null)
             }
@@ -84,11 +86,11 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             }
             Ability.entries.forEach { a ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    TapRow(onClick = { roll("d20${signed(c.mod(a))}", "${a.long} check") }, Modifier.weight(2f)) {
+                    TapRow(onClick = { roll(c.request("d20${signed(c.mod(a))}", "${a.long} check", D20Test.Check(a))) }, Modifier.weight(2f)) {
                         T("${a.short} ${c.score(a).toString().padStart(2)}", Style.Mono, Modifier.weight(1f))
                         T(signed(c.mod(a)), Style.Mono, Modifier.weight(1f), align = TextAlign.End)
                     }
-                    TapRow(onClick = { roll("d20${signed(c.save(a))}", "${a.long} save") }, Modifier.weight(1f)) {
+                    TapRow(onClick = { roll(c.request("d20${signed(c.save(a))}", "${a.long} save", D20Test.Save(a))) }, Modifier.weight(1f)) {
                         // P: proficient, so the save adds the proficiency bonus
                         T(
                             "${if (a in c.saves) "P " else ""}${signed(c.save(a))}",
@@ -99,12 +101,13 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
                     }
                 }
             }
+            c.untrainedArmor?.let { T("DIS on STR and DEX: $it, untrained. No spellcasting in it.", Style.Small, dim = true) }
 
             Section("Skills")
             val stealthDis = c.stealthDisadvantageFrom
             Skill.entries.forEach { s ->
-                val dis = if (s == Skill.Stealth) stealthDis else emptyList()
-                TapRow(onClick = { roll(RollRequest("d20${signed(c.skill(s))}", s.label, disadvantageFrom = dis)) }) {
+                val dis = c.disadvantageFrom(D20Test.Check(s.ability, s))
+                TapRow(onClick = { roll(c.request("d20${signed(c.skill(s))}", s.label, D20Test.Check(s.ability, s))) }) {
                     // the same marks as the saves; Edit keeps the checkboxes, since there they're toggles
                     val mark = when (c.training(s)) {
                         Training.None -> " "
@@ -122,6 +125,10 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             if (stealthDis.isNotEmpty()) T("DIS on Stealth: ${stealthDis.joinToString(", ")}", Style.Small, dim = true)
         }
     }
+
+    /** A roll of [test], with what gives it disadvantage. */
+    private fun Character.request(expr: String, label: String, test: D20Test) =
+        RollRequest(expr, label, disadvantageFrom = disadvantageFrom(test))
 
     @Composable
     private fun Stat(label: String, value: String, modifier: Modifier, onClick: (() -> Unit)?) {

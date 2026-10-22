@@ -66,6 +66,18 @@ data class Item(
     val equipped: Boolean = false,
 )
 
+/** A roll of a d20 the sheet makes, so it can say what gives it advantage or disadvantage. */
+sealed interface D20Test {
+    val ability: Ability
+
+    data class Check(override val ability: Ability, val skill: Skill? = null) : D20Test
+    data class Save(override val ability: Ability) : D20Test
+    /** A Dexterity check, with features of its own. */
+    data object Initiative : D20Test {
+        override val ability = Ability.DEX
+    }
+}
+
 /** A class taken after the first, multiclassing: how many levels in it, and its subclass. */
 @Serializable
 data class ClassLevel(val name: String, val level: Int, val subclass: String = "")
@@ -214,6 +226,28 @@ data class Character(
 
     /** Walking speed now: [baseSpeed], less 10 feet in armor too heavy for you. */
     val speed: Int get() = (baseSpeed - if (tooHeavy != null) HEAVY_ARMOR_SLOWDOWN else 0).coerceAtLeast(0)
+
+    /** Armor trained with, from [training] ("Light Armor", "All armor"); with none recorded, the class's. */
+    val armorTraining: Set<ArmorWeight>
+        get() {
+            if (training.isEmpty()) return classInfo(className)?.armor ?: emptySet()
+            val t = training.map { it.trim().lowercase() }
+            if ("all armor" in t) return setOf(ArmorWeight.Light, ArmorWeight.Medium, ArmorWeight.Heavy)
+            return ArmorWeight.entries.filter { "${it.name.lowercase()} armor" in t }.toSet()
+        }
+
+    /** The worn armor, by name, if the character isn't trained with it (2024: DIS on STR and DEX, no spells). */
+    val untrainedArmor: String?
+        get() = ARMOR.find { it.name == wearing }?.takeIf { it.weight != ArmorWeight.None && it.weight !in armorTraining }?.name
+
+    val canCastSpells: Boolean get() = untrainedArmor == null
+
+    /** What gives [test] disadvantage, by name: armor worn untrained, and on Stealth [stealthDisadvantageFrom]. */
+    fun disadvantageFrom(test: D20Test): List<String> = buildList {
+        val untrained = untrainedArmor?.takeIf { test.ability == Ability.STR || test.ability == Ability.DEX }
+        untrained?.let { add("$it, untrained") }
+        if (test is D20Test.Check && test.skill == Skill.Stealth) addAll(stealthDisadvantageFrom - listOfNotNull(untrained))
+    }
 
     val initiative: Int get() = mod(Ability.DEX)
     val passivePerception: Int get() = 10 + skill(Skill.Perception)

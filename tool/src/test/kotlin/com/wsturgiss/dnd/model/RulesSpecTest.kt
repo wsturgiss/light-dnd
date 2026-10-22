@@ -210,11 +210,30 @@ class RulesSpecTest {
     @Test fun F2_plateStr15Speed30() = assertEquals(30, worn("Plate Armor", Ability.STR to 15).speed)
     @Test fun F3_chainMailStr13Speed30() = assertEquals(30, worn("Chain Mail", Ability.STR to 13).speed)
 
-    @Ignore("NOT IMPLEMENTED: no armor-training check (disadvantage on STR/DEX tests, no spellcasting)")
     @Test
     fun F4_armorWithoutTrainingPenalised() {
         val wizard = worn("Plate Armor", cls = "Wizard")
-        assertTrue(wizard.stealthDisadvantageFrom.size > 1, "only Stealth is affected")
+        assertEquals("Plate Armor", wizard.untrainedArmor)
+        assertFalse(wizard.canCastSpells)
+        assertEquals(listOf("Plate Armor, untrained"), wizard.disadvantageFrom(D20Test.Check(Ability.STR)))
+        assertEquals(listOf("Plate Armor, untrained"), wizard.disadvantageFrom(D20Test.Save(Ability.DEX)))
+        assertEquals(listOf("Plate Armor, untrained"), wizard.disadvantageFrom(D20Test.Initiative))
+        assertEquals(listOf("Plate Armor, untrained"), wizard.disadvantageFrom(D20Test.Check(Ability.DEX, Skill.Stealth)))
+        assertEquals(emptyList(), wizard.disadvantageFrom(D20Test.Check(Ability.INT, Skill.Arcana)))
+        assertEquals(emptyList(), wizard.disadvantageFrom(D20Test.Save(Ability.CON)))
+        // trained: only Stealth, from the armor itself
+        val fighter = worn("Plate Armor")
+        assertNull(fighter.untrainedArmor)
+        assertTrue(fighter.canCastSpells)
+        assertEquals(emptyList(), fighter.disadvantageFrom(D20Test.Check(Ability.STR)))
+        assertEquals(listOf("Plate Armor"), fighter.disadvantageFrom(D20Test.Check(Ability.DEX, Skill.Stealth)))
+        // training as recorded wins over the class's: Rogue light only; "All armor" as the SRD has it
+        assertEquals("Chain Mail", worn("Chain Mail", cls = "Rogue").untrainedArmor)
+        assertNull(worn("Leather Armor", cls = "Rogue").untrainedArmor)
+        assertEquals("Leather Armor", worn("Leather Armor").copy(training = listOf("Simple Weapons")).untrainedArmor)
+        assertNull(worn("Plate Armor", cls = "Wizard").copy(training = listOf("All armor")).untrainedArmor)
+        assertNull(hagar.untrainedArmor)
+        assertNull(worn(null, cls = "Wizard").untrainedArmor)
     }
 
     // G. Proficiency

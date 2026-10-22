@@ -38,6 +38,8 @@ data class ClassInfo(
     val asiLevels: Set<Int> = setOf(4, 8, 12, 16),
     /** Levels that bring Expertise, and in how many skills. */
     val expertise: Map<Int, Int> = emptyMap(),
+    /** Armor the class is trained with (shields aside). */
+    val armor: Set<ArmorWeight> = emptySet(),
 ) {
     val averageHit: Int get() = hitDie / 2 + 1
 }
@@ -45,21 +47,24 @@ data class ClassInfo(
 private val A = Ability.entries.associateBy { it.short }
 private fun abilities(vararg s: String) = s.map { A.getValue(it) }
 private fun skills(vararg s: Skill) = s.toList()
+private val LIGHT = setOf(ArmorWeight.Light)
+private val LIGHT_MEDIUM = setOf(ArmorWeight.Light, ArmorWeight.Medium)
+private val ALL_ARMOR = setOf(ArmorWeight.Light, ArmorWeight.Medium, ArmorWeight.Heavy)
 
 val CLASS_INFO: List<ClassInfo> = listOf(
     ClassInfo(
         "Barbarian", 12, setOf(Ability.STR, Ability.CON), 2,
         skills(Skill.AnimalHandling, Skill.Athletics, Skill.Intimidation, Skill.Nature, Skill.Perception, Skill.Survival),
-        Caster.None, abilities("STR", "CON", "DEX", "WIS", "CHA", "INT"), unarmored = Ability.CON,
+        Caster.None, abilities("STR", "CON", "DEX", "WIS", "CHA", "INT"), unarmored = Ability.CON, armor = LIGHT_MEDIUM,
     ),
     ClassInfo(
         "Bard", 8, setOf(Ability.DEX, Ability.CHA), 3, Skill.entries,
-        Caster.Full, abilities("CHA", "DEX", "CON", "WIS", "INT", "STR"), expertise = mapOf(2 to 2, 9 to 2),
+        Caster.Full, abilities("CHA", "DEX", "CON", "WIS", "INT", "STR"), expertise = mapOf(2 to 2, 9 to 2), armor = LIGHT,
     ),
     ClassInfo(
         "Cleric", 8, setOf(Ability.WIS, Ability.CHA), 2,
         skills(Skill.History, Skill.Insight, Skill.Medicine, Skill.Persuasion, Skill.Religion),
-        Caster.Full, abilities("WIS", "CON", "STR", "CHA", "INT", "DEX"),
+        Caster.Full, abilities("WIS", "CON", "STR", "CHA", "INT", "DEX"), armor = LIGHT_MEDIUM,
     ),
     ClassInfo(
         "Druid", 8, setOf(Ability.INT, Ability.WIS), 2,
@@ -67,7 +72,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
             Skill.Arcana, Skill.AnimalHandling, Skill.Insight, Skill.Medicine,
             Skill.Nature, Skill.Perception, Skill.Religion, Skill.Survival,
         ),
-        Caster.Full, abilities("WIS", "CON", "DEX", "INT", "CHA", "STR"),
+        Caster.Full, abilities("WIS", "CON", "DEX", "INT", "CHA", "STR"), armor = LIGHT,
     ),
     ClassInfo(
         "Fighter", 10, setOf(Ability.STR, Ability.CON), 2,
@@ -75,7 +80,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
             Skill.Acrobatics, Skill.AnimalHandling, Skill.Athletics, Skill.History, Skill.Insight,
             Skill.Intimidation, Skill.Perception, Skill.Survival,
         ),
-        Caster.None, abilities("STR", "CON", "DEX", "WIS", "CHA", "INT"), asiLevels = setOf(4, 6, 8, 12, 14, 16),
+        Caster.None, abilities("STR", "CON", "DEX", "WIS", "CHA", "INT"), asiLevels = setOf(4, 6, 8, 12, 14, 16), armor = ALL_ARMOR,
     ),
     ClassInfo(
         "Monk", 8, setOf(Ability.STR, Ability.DEX), 2,
@@ -85,7 +90,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
     ClassInfo(
         "Paladin", 10, setOf(Ability.WIS, Ability.CHA), 2,
         skills(Skill.Athletics, Skill.Insight, Skill.Intimidation, Skill.Medicine, Skill.Persuasion, Skill.Religion),
-        Caster.Half, abilities("STR", "CHA", "CON", "WIS", "INT", "DEX"),
+        Caster.Half, abilities("STR", "CHA", "CON", "WIS", "INT", "DEX"), armor = ALL_ARMOR,
     ),
     ClassInfo(
         "Ranger", 10, setOf(Ability.STR, Ability.DEX), 3,
@@ -93,7 +98,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
             Skill.AnimalHandling, Skill.Athletics, Skill.Insight, Skill.Investigation,
             Skill.Nature, Skill.Perception, Skill.Stealth, Skill.Survival,
         ),
-        Caster.Half, abilities("DEX", "WIS", "CON", "STR", "INT", "CHA"), expertise = mapOf(2 to 1, 9 to 2),
+        Caster.Half, abilities("DEX", "WIS", "CON", "STR", "INT", "CHA"), expertise = mapOf(2 to 1, 9 to 2), armor = LIGHT_MEDIUM,
     ),
     ClassInfo(
         "Rogue", 8, setOf(Ability.DEX, Ability.INT), 4,
@@ -102,7 +107,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
             Skill.Investigation, Skill.Perception, Skill.Performance, Skill.Persuasion, Skill.SleightOfHand, Skill.Stealth,
         ),
         Caster.None, abilities("DEX", "CON", "WIS", "INT", "CHA", "STR"),
-        asiLevels = setOf(4, 8, 10, 12, 16), expertise = mapOf(1 to 2, 6 to 2),
+        asiLevels = setOf(4, 8, 10, 12, 16), expertise = mapOf(1 to 2, 6 to 2), armor = LIGHT,
     ),
     ClassInfo(
         "Sorcerer", 6, setOf(Ability.CON, Ability.CHA), 2,
@@ -115,7 +120,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
             Skill.Arcana, Skill.Deception, Skill.History, Skill.Intimidation,
             Skill.Investigation, Skill.Nature, Skill.Religion,
         ),
-        Caster.Pact, abilities("CHA", "CON", "DEX", "WIS", "INT", "STR"),
+        Caster.Pact, abilities("CHA", "CON", "DEX", "WIS", "INT", "STR"), armor = LIGHT,
     ),
     ClassInfo(
         "Wizard", 6, setOf(Ability.INT, Ability.WIS), 2,

@@ -52,6 +52,7 @@ class SpellsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
                 navigateTo(screenFactory = { EntryListScreen(it, listOf(Kind.Spells), "Add spells", classFilter = c.className) })
             }),
         ) {
+            c.untrainedArmor?.let { T("No spellcasting: wearing $it without training.", Style.Body, modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp())) }
             castingAbility(c.className)?.let { a ->
                 val attack = c.mod(a) + c.proficiency
                 Row(Modifier.fillMaxWidth().padding(top = 0.5f.gridUnitsAsDp())) {
