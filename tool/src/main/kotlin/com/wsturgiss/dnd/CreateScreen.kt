@@ -1,13 +1,19 @@
 package com.wsturgiss.dnd
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import com.thelightphone.sdk.SealedLightActivity
@@ -624,7 +630,25 @@ class ManualStatsScreen(
     private var scores by mutableStateOf(Ability.entries.associateWith { draft.scores[it] ?: 10 })
     private var scoresTyped by mutableStateOf(draft.manualScores != null)
     private var typedHp by mutableStateOf(draft.manualHp)
-    private var error by mutableStateOf<String?>(null)
+    /** A value the pad refused: which row (an [Ability] name or [HP_ROW]) and why. */
+    private var error by mutableStateOf<Pair<String, String>?>(null)
+
+    /**
+     * The refusal, under the row it's about, scrolled into view: back from the pad the page is
+     * where it was, and a row near the bottom would leave it under the edge.
+     */
+    @OptIn(ExperimentalFoundationApi::class)
+    @Composable
+    private fun ErrorFor(row: String) {
+        val (at, text) = error ?: return
+        if (at != row) return
+        val bring = remember { BringIntoViewRequester() }
+        T(text, Style.Body, modifier = Modifier.bringIntoViewRequester(bring).padding(vertical = 0.3f.gridUnitsAsDp()))
+        LaunchedEffect(error) {
+            withFrameNanos { }
+            bring.bringIntoView()
+        }
+    }
 
     /** Typed, or worked out by the rules from the scores as they stand here. */
     private val hp: Int get() = typedHp ?: draft.copy(manualScores = scores.takeIf { scoresTyped }, manualHp = null).maxHp
@@ -649,7 +673,7 @@ class ManualStatsScreen(
                             scoresTyped = true
                             error = null
                         } else {
-                            error = "${a.short} must be ${SCORE_RANGE.first} to ${SCORE_RANGE.last}; ${r.value} wasn't kept."
+                            error = a.name to "${a.short} must be ${SCORE_RANGE.first} to ${SCORE_RANGE.last}; ${r.value} wasn't kept."
                         }
                     }
                 }) {
@@ -658,6 +682,7 @@ class ManualStatsScreen(
                     T(signed(Math.floorDiv(v - 10, 2)) + "  ", Style.MonoSmall, dim = true)
                     T("$v", Style.MonoBig)
                 }
+                ErrorFor(a.name)
             }
             Section("Hit points")
             TapRow(onClick = {
@@ -666,7 +691,7 @@ class ManualStatsScreen(
                         typedHp = r.value
                         error = null
                     } else {
-                        error = "HP must be ${HP_RANGE.first} to ${HP_RANGE.last}; ${r.value} wasn't kept."
+                        error = HP_ROW to "HP must be ${HP_RANGE.first} to ${HP_RANGE.last}; ${r.value} wasn't kept."
                     }
                 }
             }) {
@@ -674,7 +699,7 @@ class ManualStatsScreen(
                 if (typedHp == null) T("worked out  ", Style.Small, dim = true)
                 T("$hp", Style.MonoBig)
             }
-            error?.let { T(it, Style.Body, modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp())) }
+            ErrorFor(HP_ROW)
             if (hasTyped) {
                 TapRow(onClick = { goBack(ManualStats(null, null)) }, Modifier.padding(top = 1f.gridUnitsAsDp())) {
                     T("Use the rules instead", Style.Body, Modifier.weight(1f))
@@ -684,3 +709,5 @@ class ManualStatsScreen(
         }
     }
 }
+
+private const val HP_ROW = "hp"
