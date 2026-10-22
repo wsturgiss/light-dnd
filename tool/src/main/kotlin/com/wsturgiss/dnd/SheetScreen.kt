@@ -151,6 +151,12 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
                 if (c.remarkableAthlete) T("ADV on Initiative and Athletics: Remarkable Athlete", Style.Small, dim = true)
                 if (c.jackOfAllTrades) T("Jack of All Trades: ${signed(c.proficiency / 2)} on skills without P", Style.Small, dim = true)
             }
+
+            // what an import couldn't fit (how its max HP differs), backstory; changed under Edit
+            if (c.notes.isNotBlank()) {
+                Section("Notes")
+                T(c.notes.trim(), Style.Body)
+            }
         }
     }
 

@@ -65,6 +65,9 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
                     Store.edit { it.copy(background = BACKGROUNDS[i].name) }
                 }
             }, valueStyle = Style.Body)
+            KeyValueRow("Notes", if (c.notes.isBlank()) "none" else "on the sheet", {
+                askText("Notes", c.notes) { t -> Store.edit { it.copy(notes = t) } }
+            }, valueStyle = Style.Small)
             NumberRow("Level", c.level, 1..20) { v -> Store.edit { it.copy(level = v) } }
             if (c.level < 20) {
                 KeyValueRow("Level up", "${c.level} → ${c.level + 1}", { navigateTo(screenFactory = { LevelUpScreen(it) }) })
