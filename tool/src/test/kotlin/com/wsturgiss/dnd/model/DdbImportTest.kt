@@ -135,6 +135,15 @@ class DdbImportTest {
     }
 
     @Test
+    fun privateAndMissingSayTheSameThing() {
+        val both = "Couldn't load that character. It may be private, or the ID may be wrong."
+        assertEquals(both, DdbImport.httpFailure(401))
+        assertEquals(both, DdbImport.httpFailure(403))
+        assertEquals(both, DdbImport.httpFailure(404))
+        assertFalse("private" in DdbImport.httpFailure(500))
+    }
+
+    @Test
     fun oldSavesLoadWithoutTheNewFields() {
         val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
         val old = """{"characters":[{"name":"Will","items":[{"id":1,"name":"Rope","qty":1}]}],"active":0}"""

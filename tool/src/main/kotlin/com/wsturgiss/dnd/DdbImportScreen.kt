@@ -162,9 +162,7 @@ class DdbPreviewScreen(sealedActivity: SealedLightActivity, private val id: Long
             conn.setRequestProperty("Accept", "application/json")
             when (val code = conn.responseCode) {
                 200 -> DdbImport.parse(conn.inputStream.bufferedReader().use { it.readText() })
-                401, 403 -> throw DdbImport.Failure("That character is private. Make it public on D&D Beyond, then try again.")
-                404 -> throw DdbImport.Failure("D&D Beyond has no character $id.")
-                else -> throw DdbImport.Failure("D&D Beyond answered $code. Try again later.")
+                else -> throw DdbImport.Failure(DdbImport.httpFailure(code))
             }
         } catch (e: IOException) {
             throw DdbImport.Failure("Couldn't reach D&D Beyond. Is the phone online?")

@@ -34,6 +34,15 @@ object DdbImport {
 
     class Failure(message: String) : Exception(message)
 
+    /**
+     * What to say when the character service won't send one. It answers 401/403 for a private
+     * character and for an ID that doesn't exist alike, so the message covers both.
+     */
+    fun httpFailure(code: Int): String = when (code) {
+        401, 403, 404 -> "Couldn't load that character. It may be private, or the ID may be wrong."
+        else -> "D&D Beyond answered $code. Try again later."
+    }
+
     /** The response as text; throws [Failure] with a plain message if it isn't a character. */
     fun parse(text: String): Character {
         val root = runCatching { Json.parseToJsonElement(text) }.getOrNull() as? JsonObject
