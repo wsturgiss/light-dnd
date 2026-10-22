@@ -170,7 +170,14 @@ class RulesSpecTest {
     @Test
     fun D7_monkUnarmoredAddsWisNotWithArmorOrShield() {
         assertEquals(15, worn(null, Ability.DEX to 14, Ability.WIS to 16, cls = "Monk").ac)
-        assertEquals(10 + 2 + 2, worn(null, Ability.DEX to 14, Ability.WIS to 16, cls = "Monk", shield = true).ac)
+        // 2024: a Monk has no shield training, so a shield adds nothing and still costs Unarmored Defense
+        assertEquals(10 + 2, worn(null, Ability.DEX to 14, Ability.WIS to 16, cls = "Monk", shield = true).ac)
+        assertTrue(worn(null, cls = "Monk", shield = true).untrainedShield)
+        // trained (recorded on the sheet), it's +2 again; a Wizard has none either
+        assertEquals(10 + 2 + 2, worn(null, Ability.DEX to 14, cls = "Monk", shield = true).copy(training = listOf("Shields")).ac)
+        assertEquals(10 + 2, worn(null, Ability.DEX to 14, cls = "Wizard", shield = true).ac)
+        assertFalse(worn(null, shield = true).untrainedShield)
+        assertTrue(hagar.shieldTraining)
         assertEquals(11 + 2, worn("Leather Armor", Ability.DEX to 14, Ability.WIS to 16, cls = "Monk").ac)
     }
 

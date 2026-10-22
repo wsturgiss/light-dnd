@@ -40,6 +40,7 @@ data class ClassInfo(
     val expertise: Map<Int, Int> = emptyMap(),
     /** Armor the class is trained with (shields aside). */
     val armor: Set<ArmorWeight> = emptySet(),
+    val shields: Boolean = false,
 ) {
     val averageHit: Int get() = hitDie / 2 + 1
 }
@@ -55,7 +56,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
     ClassInfo(
         "Barbarian", 12, setOf(Ability.STR, Ability.CON), 2,
         skills(Skill.AnimalHandling, Skill.Athletics, Skill.Intimidation, Skill.Nature, Skill.Perception, Skill.Survival),
-        Caster.None, abilities("STR", "CON", "DEX", "WIS", "CHA", "INT"), unarmored = Ability.CON, armor = LIGHT_MEDIUM,
+        Caster.None, abilities("STR", "CON", "DEX", "WIS", "CHA", "INT"), unarmored = Ability.CON, armor = LIGHT_MEDIUM, shields = true,
     ),
     ClassInfo(
         "Bard", 8, setOf(Ability.DEX, Ability.CHA), 3, Skill.entries,
@@ -64,7 +65,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
     ClassInfo(
         "Cleric", 8, setOf(Ability.WIS, Ability.CHA), 2,
         skills(Skill.History, Skill.Insight, Skill.Medicine, Skill.Persuasion, Skill.Religion),
-        Caster.Full, abilities("WIS", "CON", "STR", "CHA", "INT", "DEX"), armor = LIGHT_MEDIUM,
+        Caster.Full, abilities("WIS", "CON", "STR", "CHA", "INT", "DEX"), armor = LIGHT_MEDIUM, shields = true,
     ),
     ClassInfo(
         "Druid", 8, setOf(Ability.INT, Ability.WIS), 2,
@@ -72,7 +73,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
             Skill.Arcana, Skill.AnimalHandling, Skill.Insight, Skill.Medicine,
             Skill.Nature, Skill.Perception, Skill.Religion, Skill.Survival,
         ),
-        Caster.Full, abilities("WIS", "CON", "DEX", "INT", "CHA", "STR"), armor = LIGHT,
+        Caster.Full, abilities("WIS", "CON", "DEX", "INT", "CHA", "STR"), armor = LIGHT, shields = true,
     ),
     ClassInfo(
         "Fighter", 10, setOf(Ability.STR, Ability.CON), 2,
@@ -80,7 +81,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
             Skill.Acrobatics, Skill.AnimalHandling, Skill.Athletics, Skill.History, Skill.Insight,
             Skill.Intimidation, Skill.Perception, Skill.Survival,
         ),
-        Caster.None, abilities("STR", "CON", "DEX", "WIS", "CHA", "INT"), asiLevels = setOf(4, 6, 8, 12, 14, 16), armor = ALL_ARMOR,
+        Caster.None, abilities("STR", "CON", "DEX", "WIS", "CHA", "INT"), asiLevels = setOf(4, 6, 8, 12, 14, 16), armor = ALL_ARMOR, shields = true,
     ),
     ClassInfo(
         "Monk", 8, setOf(Ability.STR, Ability.DEX), 2,
@@ -90,7 +91,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
     ClassInfo(
         "Paladin", 10, setOf(Ability.WIS, Ability.CHA), 2,
         skills(Skill.Athletics, Skill.Insight, Skill.Intimidation, Skill.Medicine, Skill.Persuasion, Skill.Religion),
-        Caster.Half, abilities("STR", "CHA", "CON", "WIS", "INT", "DEX"), armor = ALL_ARMOR,
+        Caster.Half, abilities("STR", "CHA", "CON", "WIS", "INT", "DEX"), armor = ALL_ARMOR, shields = true,
     ),
     ClassInfo(
         "Ranger", 10, setOf(Ability.STR, Ability.DEX), 3,
@@ -98,7 +99,7 @@ val CLASS_INFO: List<ClassInfo> = listOf(
             Skill.AnimalHandling, Skill.Athletics, Skill.Insight, Skill.Investigation,
             Skill.Nature, Skill.Perception, Skill.Stealth, Skill.Survival,
         ),
-        Caster.Half, abilities("DEX", "WIS", "CON", "STR", "INT", "CHA"), expertise = mapOf(2 to 1, 9 to 2), armor = LIGHT_MEDIUM,
+        Caster.Half, abilities("DEX", "WIS", "CON", "STR", "INT", "CHA"), expertise = mapOf(2 to 1, 9 to 2), armor = LIGHT_MEDIUM, shields = true,
     ),
     ClassInfo(
         "Rogue", 8, setOf(Ability.DEX, Ability.INT), 4,
@@ -217,8 +218,18 @@ val ARMOR: List<Armor> = listOf(
     Armor("Plate Armor", 18, ArmorWeight.Heavy, 65.0, stealthDisadvantage = true, strength = 15),
 )
 
-/** AC from armor and scores. Unarmored Defense only counts with no armor (a Monk's also needs no shield). */
-fun armorClass(armor: Armor, shield: Boolean, scores: Map<Ability, Int>, cls: ClassInfo?): Int {
+/**
+ * AC from armor and scores. Unarmored Defense only counts with no armor (a Monk's also needs no
+ * shield). A shield held without training ([shieldTrained], the class's unless the sheet says)
+ * gives no +2 (2024).
+ */
+fun armorClass(
+    armor: Armor,
+    shield: Boolean,
+    scores: Map<Ability, Int>,
+    cls: ClassInfo?,
+    shieldTrained: Boolean = cls?.shields ?: true,
+): Int {
     fun mod(a: Ability) = Math.floorDiv((scores[a] ?: 10) - 10, 2)
     val dex = mod(Ability.DEX)
     val body = when (armor.weight) {
@@ -230,7 +241,7 @@ fun armorClass(armor: Armor, shield: Boolean, scores: Map<Ability, Int>, cls: Cl
         ArmorWeight.Medium -> armor.base + minOf(dex, 2)
         ArmorWeight.Heavy -> armor.base
     }
-    return body + if (shield) 2 else 0
+    return body + if (shield && shieldTrained) 2 else 0
 }
 
 /** Spell slots by spell level (index 0 is 1st) for a single-class character. */

@@ -52,7 +52,9 @@ class RulesTest {
         val scores = mapOf(Ability.DEX to 18, Ability.WIS to 16)
         val monk = classInfo("Monk")
         assertEquals(10 + 4 + 3, armorClass(ARMOR.first(), false, scores, monk))
-        assertEquals(10 + 4 + 2, armorClass(ARMOR.first(), true, scores, monk))
+        // a shield costs the Monk its WIS, and with no shield training (2024) it adds nothing
+        assertEquals(10 + 4, armorClass(ARMOR.first(), true, scores, monk))
+        assertEquals(10 + 4 + 2, armorClass(ARMOR.first(), true, scores, monk, shieldTrained = true))
         assertEquals(15 + 2, armorClass(ARMOR.first { it.name == "Half-Plate Armor" }, false, scores, null))
         assertEquals(18 + 2, armorClass(ARMOR.first { it.name == "Plate Armor" }, true, scores, null))
     }
@@ -257,6 +259,10 @@ class RulesTest {
             assertEquals(srd.saves.toSet(), c.saves.map { it.short }.toSet(), c.name)
             assertEquals(srd.skills.toSet(), c.skillChoices.map { it.label }.toSet(), c.name)
             assertEquals(srd.skillCount, c.skillCount, c.name)
+            // 2024 armor training: "All armor" or each weight by name, and Shields
+            val armor = ArmorWeight.entries.filter { w -> w != ArmorWeight.None && ("All armor" in srd.training || "${w.name} Armor" in srd.training) }.toSet()
+            assertEquals(armor, c.armor, c.name)
+            assertEquals("Shields" in srd.training, c.shields, c.name)
         }
     }
 

@@ -69,6 +69,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
                 Stat("PASSIVE", "${c.passivePerception}", Modifier.weight(1f), null)
             }
             c.tooHeavy?.let { T("Speed -10: ${it.name} needs STR ${it.strength}.", Style.Small, dim = true) }
+            if (c.untrainedShield) T("Shield: no training, so no +2 AC.", Style.Small, dim = true)
             KeyValueRow(
                 "Conditions",
                 c.conditions.sorted().joinToString(", ").ifEmpty { "none" },

@@ -203,7 +203,7 @@ data class Character(
 
     /** Worn armor, DEX, shield and Unarmored Defense, worked out; the Defense style's +1 in armor; plus [acBonus]. */
     val ac: Int
-        get() = armorClass(ARMOR.find { it.name == wearing } ?: ARMOR.first(), shield, scores, classInfo(className)) +
+        get() = armorClass(ARMOR.find { it.name == wearing } ?: ARMOR.first(), shield, scores, classInfo(className), shieldTraining) +
             (if (wearing != null && feats.any { it.name == "Defense" }) 1 else 0) + acBonus
 
     /** The bag item is armor or a shield, so it can be worn. */
@@ -253,6 +253,14 @@ data class Character(
         get() = ARMOR.find { it.name == wearing }?.takeIf { it.weight != ArmorWeight.None && it.weight !in armorTraining }?.name
 
     val canCastSpells: Boolean get() = untrainedArmor == null
+
+    /** Trained with shields: "Shields" in [training], or the class's when none is recorded. */
+    val shieldTraining: Boolean
+        get() = if (training.isEmpty()) classInfo(className)?.shields == true
+        else training.any { it.trim().lowercase() in setOf("shield", "shields") }
+
+    /** Holding a shield without training: it gives no AC (2024). */
+    val untrainedShield: Boolean get() = shield && !shieldTraining
 
     /** What gives [test] disadvantage, by name: armor worn untrained, and on Stealth [stealthDisadvantageFrom]. */
     fun disadvantageFrom(test: D20Test): List<String> = buildList {
