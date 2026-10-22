@@ -189,7 +189,12 @@ data class Armor(
     val pounds: Double,
     /** Disadvantage on Stealth checks while worn, as the SRD marks it. */
     val stealthDisadvantage: Boolean = false,
+    /** Below this Strength, the armor takes 10 feet off Speed; 0 for none. */
+    val strength: Int = 0,
 )
+
+/** What armor too heavy for the wearer's Strength takes off Speed. */
+const val HEAVY_ARMOR_SLOWDOWN = 10
 
 val ARMOR: List<Armor> = listOf(
     Armor("No armor", 10, ArmorWeight.None, 0.0),
@@ -202,9 +207,9 @@ val ARMOR: List<Armor> = listOf(
     Armor("Breastplate", 14, ArmorWeight.Medium, 20.0),
     Armor("Half-Plate Armor", 15, ArmorWeight.Medium, 40.0, stealthDisadvantage = true),
     Armor("Ring Mail", 14, ArmorWeight.Heavy, 40.0, stealthDisadvantage = true),
-    Armor("Chain Mail", 16, ArmorWeight.Heavy, 55.0, stealthDisadvantage = true),
-    Armor("Splint Armor", 17, ArmorWeight.Heavy, 60.0, stealthDisadvantage = true),
-    Armor("Plate Armor", 18, ArmorWeight.Heavy, 65.0, stealthDisadvantage = true),
+    Armor("Chain Mail", 16, ArmorWeight.Heavy, 55.0, stealthDisadvantage = true, strength = 13),
+    Armor("Splint Armor", 17, ArmorWeight.Heavy, 60.0, stealthDisadvantage = true, strength = 15),
+    Armor("Plate Armor", 18, ArmorWeight.Heavy, 65.0, stealthDisadvantage = true, strength = 15),
 )
 
 /** AC from armor and scores. Unarmored Defense only counts with no armor (a Monk's also needs no shield). */
@@ -505,7 +510,7 @@ data class Draft(
             hp = maxHp,
             wearing = armorInfo.name.takeIf { armorInfo.weight != ArmorWeight.None },
             shield = shield,
-            speed = speciesInfo?.speed ?: 30,
+            baseSpeed = speciesInfo?.speed ?: 30,
             items = items,
             coins = if (gp > 0) mapOf(Coin.GP to gp) else emptyMap(),
         ).withClassSlots(cls, level)

@@ -199,7 +199,7 @@ object DdbImport {
             wearing = wornArmor.firstOrNull(),
             shield = shield,
             acBonus = acBonus,
-            speed = race?.obj("weightSpeeds")?.obj("normal")?.get("walk").int ?: speciesInfo(speciesName.orEmpty())?.speed ?: 30,
+            baseSpeed = race?.obj("weightSpeeds")?.obj("normal")?.get("walk").int ?: speciesInfo(speciesName.orEmpty())?.speed ?: 30,
             spells = spells,
             items = items,
             coins = coins,

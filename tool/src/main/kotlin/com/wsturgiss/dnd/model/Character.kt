@@ -113,7 +113,8 @@ data class Character(
     val acBonus: Int = 0,
     /** AC as a typed number, from saves before AC was worked out. Read once by [Store], then dropped. */
     @SerialName("ac") val legacyAc: Int? = null,
-    val speed: Int = 30,
+    /** Walking speed as the species (or the sheet) has it; [speed] is after armor. */
+    @SerialName("speed") val baseSpeed: Int = 30,
     val conditions: Set<String> = emptySet(),
     val slots: List<Slots> = List(9) { Slots() },
     val spells: List<String> = emptyList(),
@@ -206,6 +207,13 @@ data class Character(
             if (wearing != null && items.none { it.name == wearing } && ARMOR.find { it.name == wearing }?.stealthDisadvantage == true) add(wearing)
             items.filter { givesStealthDisadvantage(it) && (if (wearable(it)) isWorn(it) else it.qty > 0) }.forEach { add(it.name) }
         }.distinct()
+
+    /** The worn armor, if it needs more Strength than the wearer has. */
+    val tooHeavy: Armor?
+        get() = ARMOR.find { it.name == wearing }?.takeIf { it.strength > 0 && score(Ability.STR) < it.strength }
+
+    /** Walking speed now: [baseSpeed], less 10 feet in armor too heavy for you. */
+    val speed: Int get() = (baseSpeed - if (tooHeavy != null) HEAVY_ARMOR_SLOWDOWN else 0).coerceAtLeast(0)
 
     val initiative: Int get() = mod(Ability.DEX)
     val passivePerception: Int get() = 10 + skill(Skill.Perception)

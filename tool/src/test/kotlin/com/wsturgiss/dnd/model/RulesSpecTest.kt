@@ -190,10 +190,23 @@ class RulesSpecTest {
 
     // F. Heavy armor Strength
 
-    @Ignore("NOT IMPLEMENTED: armor's Strength requirement doesn't change speed")
-    @Test fun F1_plateStr14Speed20() = assertEquals(20, worn("Plate Armor", Ability.STR to 14).speed)
+    @Test
+    fun F1_plateStr14Speed20() {
+        val c = worn("Plate Armor", Ability.STR to 14)
+        assertEquals(20, c.speed)
+        assertEquals(30, c.baseSpeed)
+        assertEquals("Plate Armor", c.tooHeavy?.name)
+        assertEquals(20, worn("Splint Armor", Ability.STR to 14).speed)
+        assertEquals(20, worn("Chain Mail", Ability.STR to 12).speed)
+        // Ring Mail has no Strength requirement; out of the armor, speed comes back
+        assertEquals(30, worn("Ring Mail", Ability.STR to 3).speed)
+        assertEquals(30, c.copy(wearing = null).speed)
+        // saves keep "speed" as the base
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        assertEquals(25, json.decodeFromString<Character>("""{"name":"Old","speed":25}""").baseSpeed)
+        assertTrue("\"speed\":20" in json.encodeToString(Character.serializer(), c.copy(baseSpeed = 20)))
+    }
 
-    // F2/F3 hold only because speed never changes with armor; see F1.
     @Test fun F2_plateStr15Speed30() = assertEquals(30, worn("Plate Armor", Ability.STR to 15).speed)
     @Test fun F3_chainMailStr13Speed30() = assertEquals(30, worn("Chain Mail", Ability.STR to 13).speed)
 

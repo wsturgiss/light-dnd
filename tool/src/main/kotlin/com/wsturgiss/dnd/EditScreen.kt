@@ -88,7 +88,7 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
                     ),
                 ) { r -> Store.edit { it.copy(acBonus = r.value.coerceIn(-10, 20)) } }
             })
-            NumberRow("Speed", c.speed, 0..200) { v -> Store.edit { it.copy(speed = v) } }
+            NumberRow(if (c.tooHeavy != null) "Speed, out of armor" else "Speed", c.baseSpeed, 0..200) { v -> Store.edit { it.copy(baseSpeed = v) } }
 
             Section("Proficiencies")
             KeyValueRow(
