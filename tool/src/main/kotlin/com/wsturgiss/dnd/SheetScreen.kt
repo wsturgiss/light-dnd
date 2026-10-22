@@ -17,8 +17,14 @@ import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
 import com.wsturgiss.dnd.model.Ability
+import com.wsturgiss.dnd.model.Attack
 import com.wsturgiss.dnd.model.Character
 import com.wsturgiss.dnd.model.D20Test
+import com.wsturgiss.dnd.model.Item
+import com.wsturgiss.dnd.model.Srd
+import com.wsturgiss.dnd.model.Weapon
+import com.wsturgiss.dnd.model.weaponAttack
+import com.wsturgiss.dnd.model.weaponName
 import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Skill
 import com.wsturgiss.dnd.model.Store
@@ -78,6 +84,13 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             )
             KeyValueRow("Rest", "long · short", onClick = { navigateTo(screenFactory = { RestScreen(it) }) }, valueStyle = Style.Small)
 
+            val weapons = c.items.filter { it.qty > 0 }.mapNotNull { item -> weaponOf(item)?.let { c.weaponAttack(item, it) } }
+            if (weapons.isNotEmpty()) {
+                Section("Attacks")
+                weapons.forEach { a -> AttackRow(a) { attack(c, a) } }
+                T("A natural 20 rolls the damage too, its dice doubled.", Style.Small, dim = true)
+            }
+
             Section("Abilities")
             // three equal columns: ability and score, check, save; the numbers right-aligned under their headers
             Row(Modifier.fillMaxWidth()) {
@@ -130,6 +143,9 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             if (c.jackOfAllTrades) T("Jack of All Trades: ${signed(c.proficiency / 2)} on skills without P", Style.Small, dim = true)
         }
     }
+
+    /** The SRD weapon a bag item is, if it's one. */
+    private fun weaponOf(item: Item): Weapon? = Srd.find(lightContext, Kind.Equipment, weaponName(item))?.let(Weapon::of)
 
     /** A roll of [test], with what gives it advantage or disadvantage. */
     private fun Character.request(expr: String, label: String, test: D20Test) =
@@ -235,5 +251,15 @@ class ConditionsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(se
                 }
             }
         }
+    }
+}
+
+/** An attack: its name, what it adds to the d20, its damage. */
+@Composable
+fun AttackRow(a: Attack, onClick: () -> Unit) {
+    TapRow(onClick = onClick) {
+        T(a.name, Style.Body, Modifier.weight(1f), maxLines = 1)
+        T(signed(a.toHit) + "  ", Style.Mono)
+        T(listOfNotNull(a.damage?.toString(), a.damageType.ifEmpty { null }).joinToString(" "), Style.MonoSmall, dim = true, maxLines = 1)
     }
 }

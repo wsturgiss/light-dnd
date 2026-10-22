@@ -3,6 +3,9 @@ package com.wsturgiss.dnd
 import androidx.compose.foundation.ScrollState
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.SimpleLightScreen
+import com.wsturgiss.dnd.model.Attack
+import com.wsturgiss.dnd.model.Character
+import com.wsturgiss.dnd.model.D20Test
 import com.wsturgiss.dnd.model.Edge
 import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Store
@@ -18,6 +21,8 @@ data class RollRequest(
     val advantageFrom: List<String> = emptyList(),
     /** An attack roll: a natural 20 is a critical hit, a natural 1 a miss. */
     val attack: Boolean = false,
+    /** The attack's damage on a hit; a critical hit rolls it straight away, every die twice. */
+    val damage: String? = null,
 )
 
 /** Base for every screen here: makes sure the save file is loaded, and holds the common jumps. */
@@ -37,6 +42,17 @@ abstract class DndScreen<R>(sealedActivity: SealedLightActivity) : SimpleLightSc
     fun roll(request: RollRequest) = navigateTo(screenFactory = { RollScreen(it, request) })
 
     fun roll(expr: String, label: String) = roll(RollRequest(expr, label))
+
+    /** Rolls [a] for [c], with what gives it advantage or disadvantage, damage to follow. */
+    fun attack(c: Character, a: Attack) = roll(
+        RollRequest(
+            a.expr.toString(), a.name,
+            disadvantageFrom = c.disadvantageFrom(D20Test.AttackRoll(a.ability)),
+            advantageFrom = c.advantageFrom(D20Test.AttackRoll(a.ability)),
+            attack = true,
+            damage = a.damage?.toString(),
+        ),
+    )
 
     fun openEntry(kind: Kind, name: String) = navigateTo(screenFactory = { EntryScreen(it, kind, name) })
 

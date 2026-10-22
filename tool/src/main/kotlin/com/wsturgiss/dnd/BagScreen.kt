@@ -16,7 +16,16 @@ import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
+import com.wsturgiss.dnd.model.Character
 import com.wsturgiss.dnd.model.Coin
+import com.wsturgiss.dnd.model.DiceExpr
+import com.wsturgiss.dnd.model.Item
+import com.wsturgiss.dnd.model.Weapon
+import com.wsturgiss.dnd.model.namedBonus
+import com.wsturgiss.dnd.model.signed
+import com.wsturgiss.dnd.model.weaponAttack
+import com.wsturgiss.dnd.model.weaponName
+import com.wsturgiss.dnd.ui.KeyValueRow
 import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Srd
 import com.wsturgiss.dnd.model.Store
@@ -96,6 +105,42 @@ class BagScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
 /** One thing in the bag: how many, and what the SRD says about it. */
 class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : DndScreen<Unit>(sealedActivity) {
 
+    private fun change(f: (Item) -> Item) = Store.edit { c -> c.copy(items = c.items.map { if (it.id == id) f(it) else it }) }
+
+    /**
+     * A weapon's attack, and what makes it magic: a bonus to attack and damage, extra damage dice.
+     * A magic weapon from the SRD ("Weapon +1", Flame Tongue) is any weapon, so it asks which.
+     */
+    @Composable
+    private fun WeaponSection(c: Character, item: Item, magicWeapon: Boolean) {
+        val w = Srd.find(lightContext, Kind.Equipment, weaponName(item))?.let(Weapon::of)
+        if (w == null && !magicWeapon) return
+        Section("Attack")
+        if (magicWeapon || item.weapon != null) {
+            KeyValueRow("Weapon", w?.name ?: "choose", valueStyle = Style.Body, onClick = {
+                val all = Srd.load(lightContext, Kind.Equipment).mapNotNull(Weapon::of)
+                navigateTo(
+                    screenFactory = { PickScreen(it, "Which weapon", all.map { o -> Option(o.name, "${o.damage} ${o.damageType}") }, all.indexOfFirst { o -> o.name == w?.name }.takeIf { i -> i >= 0 }) },
+                    resultCallback = { i -> change { it.copy(weapon = all[i].name) } },
+                )
+            })
+        }
+        if (w == null) return
+        val a = c.weaponAttack(item, w)
+        AttackRow(a) { attack(c, a) }
+        KeyValueRow("Magic bonus", signed(item.magicBonus ?: namedBonus(item.name)), onClick = {
+            askNumber(NumberRequest("Magic bonus", "To attack and damage rolls: +1 for a +1 weapon.", item.magicBonus ?: namedBonus(item.name), allowNegative = true)) { r ->
+                change { it.copy(magicBonus = r.value.coerceIn(-5, 5)) }
+            }
+        })
+        KeyValueRow("Extra damage", item.extraDamage.ifEmpty { "none" }, onClick = {
+            askText("Extra damage dice (2d6), 0 for none", item.extraDamage) { t ->
+                DiceExpr.parse(t)?.let { e -> change { it.copy(extraDamage = e.toString()) } }
+            }
+        })
+        T("A critical hit doubles every damage die, extra dice too; the bonuses are added once.", Style.Small, dim = true)
+    }
+
     @Composable
     override fun Content() {
         val save by Store.state.collectAsState()
@@ -153,6 +198,7 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
                 T("Disadvantage on Stealth", Style.Body, Modifier.weight(1f))
             }
             if (dis) T(if (c.wearable(item)) "While worn." else "While carried.", Style.Small, dim = true)
+            WeaponSection(c, item, entry?.meta?.startsWith("Weapons") == true)
             if (entry != null) {
                 Section(kind.one)
                 T(entry.meta, Style.Small, dim = true)

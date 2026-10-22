@@ -12,7 +12,8 @@ import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.gridUnitsAsDp
-import com.wsturgiss.dnd.model.Ability
+import com.wsturgiss.dnd.model.castingAbility
+import com.wsturgiss.dnd.model.spellAttack
 import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Slots
 import com.wsturgiss.dnd.model.Srd
@@ -23,14 +24,6 @@ import com.wsturgiss.dnd.ui.Section
 import com.wsturgiss.dnd.ui.Style
 import com.wsturgiss.dnd.ui.T
 import com.wsturgiss.dnd.ui.TapRow
-
-/** The ability each class casts with. Classes without spells aren't listed. */
-fun castingAbility(className: String): Ability? = when (className) {
-    "Bard", "Paladin", "Sorcerer", "Warlock" -> Ability.CHA
-    "Cleric", "Druid", "Ranger" -> Ability.WIS
-    "Wizard" -> Ability.INT
-    else -> null
-}
 
 /**
  * Your spells and slots. Tap a slot row to spend one; tap its count to get one
@@ -66,6 +59,12 @@ class SpellsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
                     }
                 }
                 T("${a.long} · tap attack to roll", Style.Small, dim = true)
+            }
+            val attacks = known.mapNotNull { c.spellAttack(it) }
+            if (attacks.isNotEmpty()) {
+                Section("Spell attacks")
+                attacks.forEach { a -> AttackRow(a) { attack(c, a) } }
+                T("A natural 20 rolls the damage too, its dice doubled.", Style.Small, dim = true)
             }
 
             Section("Slots")

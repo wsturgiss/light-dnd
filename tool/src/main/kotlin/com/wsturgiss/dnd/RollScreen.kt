@@ -40,6 +40,8 @@ import com.wsturgiss.dnd.model.LoggedRoll
 import com.wsturgiss.dnd.model.Roll
 import com.wsturgiss.dnd.model.Store
 import com.wsturgiss.dnd.model.combinedEdge
+import com.wsturgiss.dnd.model.rollAttack
+import com.wsturgiss.dnd.model.rollDamage
 import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.ui.DiceClips
 import com.wsturgiss.dnd.ui.DiceStage
@@ -82,6 +84,11 @@ class RollScreen(
     private var attack by mutableStateOf(request?.attack == true)
     /** Damage from a critical hit: every die twice. Only for rolls that aren't a d20 test. */
     private var crit by mutableStateOf(false)
+    /** The attack's damage on a hit; kept for rerolls of the attack, gone with a new expression. */
+    private var damage by mutableStateOf(request?.damage?.let { DiceExpr.parse(it) })
+    /** While [result] is damage: the attack roll it followed, and whether that was a critical hit. */
+    private var followed by mutableStateOf<LoggedRoll?>(null)
+    private var critHit by mutableStateOf(false)
     private var result by mutableStateOf<LoggedRoll?>(null)
     /** The roll behind [result], with every die's face, for the animation. */
     private var lastRoll by mutableStateOf<Roll?>(null)
@@ -100,13 +107,33 @@ class RollScreen(
     private fun rollNow() {
         val e = expr ?: DiceExpr.parse("d20")!!
         expr = e
+        followed = null
+        if (attack) {
+            // a natural 20 goes straight on to the damage, every die twice
+            val out = rollAttack(e, damage, rolledEdge)
+            val hit = Store.record(label ?: e.toString(), out.attack, attack = true, damage = damage?.toString())
+            if (out.damage != null) showDamage(hit, out.damage, critical = true) else show(hit, out.attack)
+            return
+        }
         val doubled = crit && !e.isSingleD20
         val roll = (if (doubled) e.critical() else e).roll(rolledEdge)
-        result = Store.record((label ?: e.toString()) + if (doubled) ", critical" else "", roll, attack)
+        show(Store.record((label ?: e.toString()) + if (doubled) ", critical" else "", roll), roll)
+    }
+
+    private fun show(logged: LoggedRoll, roll: Roll) {
+        result = logged
         lastRoll = roll
         rollId++
         landed = false
         fresh = true
+    }
+
+    /** [roll] is the damage of the attack [hit]: logged as such, shown with the attack above it. */
+    private fun showDamage(hit: LoggedRoll, roll: Roll, critical: Boolean) {
+        val logged = Store.record("${label ?: "Attack"} damage" + if (critical) ", critical" else "", roll)
+        followed = hit
+        critHit = critical
+        show(logged, roll)
     }
 
     /** Advantage and disadvantage apply to a lone d20 (with any modifier), as in 5e; with no dice yet, Roll rolls one. */
@@ -120,6 +147,8 @@ class RollScreen(
             granted = emptyList()
             attack = false
             crit = false
+            damage = null
+            followed = null
             fresh = false
         }
         // A modifier with no dice yet applies to a d20: +5 then Roll is d20+5, not a flat 5.
@@ -140,6 +169,8 @@ class RollScreen(
         granted = emptyList()
         attack = false
         crit = false
+        damage = null
+        followed = null
     }
 
     @Composable
@@ -162,6 +193,7 @@ class RollScreen(
                     .padding(horizontal = GUTTER.gridUnitsAsDp()),
             ) {
                 ResultArea(Modifier.weight(1f))
+                DamageRow()
                 Builder()
                 Pad()
             }
@@ -178,9 +210,16 @@ class RollScreen(
                 return@Column
             }
             val stage = lastRoll?.let(::stageDice)
+            val hit = followed
+            if (hit != null) {
+                // damage: the attack it followed, and on a critical hit how the dice grew
+                if (critHit) T("CRITICAL HIT — damage dice doubled", Style.Mono, align = TextAlign.Center, maxLines = 2)
+                T("attack ${hit.expr}: ${hit.detail} = ${hit.total}", Style.Small, dim = true, maxLines = 1)
+                damage?.let { d -> T(if (critHit) "damage $d → ${d.critical()}" else "damage $d", Style.Small, dim = true, maxLines = 1) }
+            }
             // what was rolled, always in the same place: top centre
             T(r.label, Style.Small, dim = true, maxLines = 1)
-            val why = listOfNotNull(
+            val why = if (hit != null) emptyList() else listOfNotNull(
                 granted.takeIf { it.isNotEmpty() }?.let { "advantage: ${it.joinToString(", ")}" },
                 imposed.takeIf { it.isNotEmpty() }?.let { "disadvantage: ${it.joinToString(", ")}" },
             )
@@ -347,6 +386,25 @@ class RollScreen(
         else -> null
     }
 
+    /**
+     * After an attack roll that isn't a natural 20 or 1: the damage, for when the table says it hit.
+     * A natural 20 has rolled it already; a natural 1 misses, so there's nothing to roll.
+     */
+    @Composable
+    private fun DamageRow() {
+        val r = result ?: return
+        val d = damage ?: return
+        if (!r.attack || followed != null || !landed) return
+        if (r.natural == 1) {
+            T("No damage: a natural 1 misses.", Style.Small, dim = true, modifier = Modifier.padding(vertical = 0.3f.gridUnitsAsDp()))
+            return
+        }
+        TapRow(onClick = { showDamage(r, rollDamage(d, critical = false), critical = false) }) {
+            T("Hit? Roll damage", Style.Body, Modifier.weight(1f))
+            T(d.toString(), Style.Mono)
+        }
+    }
+
     @Composable
     private fun Builder() {
         val e = expr
@@ -422,7 +480,7 @@ class LogScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
             KeyValueRow("Dice animation", save.diceCamera.label, onClick = { Store.cycleDiceCamera() })
             if (save.log.isEmpty()) T("Nothing rolled yet.", Style.Body, dim = true, modifier = Modifier.padding(top = 1f.gridUnitsAsDp()))
             save.log.forEach { r ->
-                TapRow(onClick = { roll(RollRequest(r.expr, r.label, r.edge, attack = r.attack)) }) {
+                TapRow(onClick = { roll(RollRequest(r.expr, r.label, r.edge, attack = r.attack, damage = r.damage)) }) {
                     Column(Modifier.weight(1f)) {
                         T(r.label, Style.Body, maxLines = 1)
                         T(listOfNotNull(r.by, "${r.expr}  ${r.detail}").joinToString("  ·  "), Style.MonoSmall, dim = true, maxLines = 1)

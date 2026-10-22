@@ -64,6 +64,12 @@ data class Item(
     val stealthDisadvantage: Boolean? = null,
     /** In hand or on, as D&D Beyond had it. Armor and shields go by [Character.wearing] and [Character.shield]. */
     val equipped: Boolean = false,
+    /** The SRD weapon it is, for a magic weapon not named for one ("Weapon +1"); null goes by the name. */
+    val weapon: String? = null,
+    /** +N to attack and damage rolls; null reads it from the name ("Longsword, +1"). */
+    val magicBonus: Int? = null,
+    /** Damage dice on top of the weapon's on a hit ("2d6"), doubled on a critical hit like the rest. */
+    val extraDamage: String = "",
 )
 
 /** A roll of a d20 the sheet makes, so it can say what gives it advantage or disadvantage. */
@@ -72,6 +78,7 @@ sealed interface D20Test {
 
     data class Check(override val ability: Ability, val skill: Skill? = null) : D20Test
     data class Save(override val ability: Ability) : D20Test
+    data class AttackRoll(override val ability: Ability) : D20Test
     /** A Dexterity check, with features of its own. */
     data object Initiative : D20Test {
         override val ability = Ability.DEX
