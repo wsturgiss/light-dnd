@@ -220,15 +220,14 @@ val ARMOR: List<Armor> = listOf(
 
 /**
  * AC from armor and scores. Unarmored Defense only counts with no armor (a Monk's also needs no
- * shield). A shield held without training ([shieldTrained], the class's unless the sheet says)
- * gives no +2 (2024).
+ * shield). A shield adds +2 if [shieldAc]: always in 2014, only with shield training in 2024.
  */
 fun armorClass(
     armor: Armor,
     shield: Boolean,
     scores: Map<Ability, Int>,
     cls: ClassInfo?,
-    shieldTrained: Boolean = cls?.shields ?: true,
+    shieldAc: Boolean = true,
 ): Int {
     fun mod(a: Ability) = Math.floorDiv((scores[a] ?: 10) - 10, 2)
     val dex = mod(Ability.DEX)
@@ -241,7 +240,7 @@ fun armorClass(
         ArmorWeight.Medium -> armor.base + minOf(dex, 2)
         ArmorWeight.Heavy -> armor.base
     }
-    return body + if (shield && shieldTrained) 2 else 0
+    return body + if (shield && shieldAc) 2 else 0
 }
 
 /** Spell slots by spell level (index 0 is 1st) for a single-class character. */
@@ -593,7 +592,7 @@ fun Character.levelUp(hitRoll: Int, raise: Map<Ability, Int>, expertise: Set<Ski
 const val INITIATE_FROM_BACKGROUND = "background"
 const val INITIATE_FROM_SPECIES = "species"
 const val INITIATE_FEAT = "Magic Initiate"
-/** Not in the SRD, but common: +2 max HP a level, the levels before it too. */
+/** Not in the SRD, but common: a feat (2014; 2024 makes it an origin feat) worth +2 max HP a level, the levels before it too. */
 const val TOUGH_FEAT = "Tough"
 const val TOUGH_HP_PER_LEVEL = 2
 const val LANGUAGES_TO_PICK = 2

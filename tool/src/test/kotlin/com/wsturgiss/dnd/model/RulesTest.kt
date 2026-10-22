@@ -52,9 +52,10 @@ class RulesTest {
         val scores = mapOf(Ability.DEX to 18, Ability.WIS to 16)
         val monk = classInfo("Monk")
         assertEquals(10 + 4 + 3, armorClass(ARMOR.first(), false, scores, monk))
-        // a shield costs the Monk its WIS, and with no shield training (2024) it adds nothing
-        assertEquals(10 + 4, armorClass(ARMOR.first(), true, scores, monk))
-        assertEquals(10 + 4 + 2, armorClass(ARMOR.first(), true, scores, monk, shieldTrained = true))
+        // a shield costs the Monk its WIS; 2014: untrained, it still adds +2
+        assertEquals(10 + 4 + 2, armorClass(ARMOR.first(), true, scores, monk))
+        // 2024: no shield training, no +2
+        assertEquals(10 + 4, armorClass(ARMOR.first(), true, scores, monk, shieldAc = false))
         assertEquals(15 + 2, armorClass(ARMOR.first { it.name == "Half-Plate Armor" }, false, scores, null))
         assertEquals(18 + 2, armorClass(ARMOR.first { it.name == "Plate Armor" }, true, scores, null))
     }

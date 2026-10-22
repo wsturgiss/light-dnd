@@ -19,10 +19,12 @@ data class RollRequest(
     val disadvantageFrom: List<String> = emptyList(),
     /** What gives it advantage ("Remarkable Athlete"); against [disadvantageFrom] they cancel. */
     val advantageFrom: List<String> = emptyList(),
-    /** An attack roll: a natural 20 is a critical hit, a natural 1 a miss. */
+    /** An attack roll: a natural 20 (or [critOn] and up) is a critical hit, a natural 1 a miss. */
     val attack: Boolean = false,
     /** The attack's damage on a hit; a critical hit rolls it straight away, every die twice. */
     val damage: String? = null,
+    /** The lowest natural d20 that's a critical hit: 19 for a Champion's weapon. */
+    val critOn: Int = 20,
 )
 
 /** Base for every screen here: makes sure the save file is loaded, and holds the common jumps. */
@@ -51,6 +53,7 @@ abstract class DndScreen<R>(sealedActivity: SealedLightActivity) : SimpleLightSc
             advantageFrom = c.advantageFrom(D20Test.AttackRoll(a.ability)),
             attack = true,
             damage = a.damage?.toString(),
+            critOn = a.critOn,
         ),
     )
 

@@ -8,7 +8,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The rules spec (qa-dnd-shots/rules-spec.md), one test per case, named by its id. 2024 rules.
+ * The rules spec (qa-dnd-shots/rules-spec.md), one test per case, named by its id. 2014 rules, the
+ * default; where 2024 differs, it's checked too with `rules = Edition.E2024`.
  */
 class RulesSpecTest {
 
@@ -96,6 +97,9 @@ class RulesSpecTest {
         assertEquals(third.maxHp, third.withFeats(listOf(Feat("Tough"))).withFeats(emptyList()).maxHp)
         assertEquals(10 + 2, draft("Fighter", 1, 10).copy(versatileFeat = "Tough").maxHp)
         assertEquals(10 + 2 + 2 * (6 + 2), third.withFeats(listOf(Feat("Tough"))).fixedMaxHp)
+        // 2014: a feat like any other, taken instead of the 4th level's ASI: +2 for all four levels
+        val fourth = third.levelUp(6, emptyMap(), emptySet())
+        assertEquals(fourth.maxHp + 2 * 4, fourth.withFeats(fourth.feats + Feat("Tough")).maxHp)
     }
 
     @Test
@@ -170,15 +174,31 @@ class RulesSpecTest {
     @Test
     fun D7_monkUnarmoredAddsWisNotWithArmorOrShield() {
         assertEquals(15, worn(null, Ability.DEX to 14, Ability.WIS to 16, cls = "Monk").ac)
-        // 2024: a Monk has no shield training, so a shield adds nothing and still costs Unarmored Defense
-        assertEquals(10 + 2, worn(null, Ability.DEX to 14, Ability.WIS to 16, cls = "Monk", shield = true).ac)
-        assertTrue(worn(null, cls = "Monk", shield = true).untrainedShield)
-        // trained (recorded on the sheet), it's +2 again; a Wizard has none either
-        assertEquals(10 + 2 + 2, worn(null, Ability.DEX to 14, cls = "Monk", shield = true).copy(training = listOf("Shields")).ac)
-        assertEquals(10 + 2, worn(null, Ability.DEX to 14, cls = "Wizard", shield = true).ac)
+        // 2014: a shield costs the Monk Unarmored Defense; untrained, it still gives +2
+        val monk = worn(null, Ability.DEX to 14, Ability.WIS to 16, cls = "Monk", shield = true)
+        assertEquals(10 + 2 + 2, monk.ac)
+        assertTrue(monk.untrainedShield)
+        // ...with the penalties of armor worn untrained: DIS on STR and DEX, no spells
+        assertEquals(listOf("Shield"), monk.untrainedGear)
+        assertFalse(monk.canCastSpells)
+        assertEquals(listOf("Shield, untrained"), monk.disadvantageFrom(D20Test.Check(Ability.STR)))
+        assertEquals(listOf("Shield, untrained"), monk.disadvantageFrom(D20Test.Save(Ability.DEX)))
+        assertEquals(listOf("Shield, untrained"), monk.disadvantageFrom(D20Test.AttackRoll(Ability.DEX)))
+        assertEquals(emptyList(), monk.disadvantageFrom(D20Test.Save(Ability.WIS)))
+        // trained (recorded on the sheet), +2 and no penalties; a Wizard has no training either
+        val trained = worn(null, Ability.DEX to 14, cls = "Monk", shield = true).copy(training = listOf("Shields"))
+        assertEquals(10 + 2 + 2, trained.ac)
+        assertTrue(trained.untrainedGear.isEmpty())
+        assertEquals(10 + 2 + 2, worn(null, Ability.DEX to 14, cls = "Wizard", shield = true).ac)
         assertFalse(worn(null, shield = true).untrainedShield)
         assertTrue(hagar.shieldTraining)
         assertEquals(11 + 2, worn("Leather Armor", Ability.DEX to 14, Ability.WIS to 16, cls = "Monk").ac)
+        // 2024: an untrained shield adds nothing, and brings no other penalty
+        val monk24 = monk.copy(rules = Edition.E2024)
+        assertEquals(10 + 2, monk24.ac)
+        assertTrue(monk24.untrainedGear.isEmpty())
+        assertTrue(monk24.canCastSpells)
+        assertEquals(10 + 2, worn(null, Ability.DEX to 14, cls = "Wizard", shield = true).copy(rules = Edition.E2024).ac)
     }
 
     // E. Stealth disadvantage
@@ -214,6 +234,18 @@ class RulesSpecTest {
 
     @Test fun F2_plateStr15Speed30() = assertEquals(30, worn("Plate Armor", Ability.STR to 15).speed)
     @Test fun F3_chainMailStr13Speed30() = assertEquals(30, worn("Chain Mail", Ability.STR to 13).speed)
+
+    @Test
+    fun F5_dwarvesIgnoreHeavyArmorStrength() {
+        // 2014: a dwarf's speed isn't reduced by heavy armor, a subrace's name too
+        val dwarf = worn("Plate Armor", Ability.STR to 10).copy(species = "Dwarf", baseSpeed = 25)
+        assertNull(dwarf.tooHeavy)
+        assertEquals(25, dwarf.speed)
+        assertEquals(25, dwarf.copy(species = "Hill Dwarf").speed)
+        assertEquals(15, dwarf.copy(species = "Human").speed)
+        // 2024 has no such trait
+        assertEquals(15, dwarf.copy(rules = Edition.E2024).speed)
+    }
 
     @Test
     fun F4_armorWithoutTrainingPenalised() {
@@ -281,19 +313,68 @@ class RulesSpecTest {
         assertEquals(0, Character(className = "Fighter", level = 5).skill(Skill.Athletics))
         // passive Perception is a check, so it counts there too
         assertEquals(11, bard.passivePerception)
+        // 2014: any ability check without proficiency, a plain one and Initiative too; never a save
+        assertEquals(1, bard.check(Ability.STR))
+        assertEquals(1, bard.initiative)
+        assertEquals(0, bard.save(Ability.STR))
+        // rounded down: proficiency +2 gives +1, +6 gives +3
+        assertEquals(1, Character(className = "Bard", level = 2).initiative)
+        assertEquals(3, Character(className = "Bard", level = 17).check(Ability.INT))
+        // 2024: skill checks only
+        val bard24 = bard.copy(rules = Edition.E2024)
+        assertEquals(1, bard24.skill(Skill.Athletics))
+        assertEquals(0, bard24.check(Ability.STR))
+        assertEquals(0, bard24.initiative)
     }
 
     @Test
-    fun G4_remarkableAthleteAdvantageOnInitiativeAndAthletics() {
-        // 2024: advantage, not half proficiency, so the numbers don't change
-        assertTrue(hagar.remarkableAthlete)
-        assertEquals(listOf("Remarkable Athlete"), hagar.advantageFrom(D20Test.Initiative))
-        assertEquals(listOf("Remarkable Athlete"), hagar.advantageFrom(D20Test.Check(Ability.STR, Skill.Athletics)))
-        assertEquals(emptyList(), hagar.advantageFrom(D20Test.Check(Ability.STR)))
-        assertEquals(emptyList(), hagar.advantageFrom(D20Test.Check(Ability.DEX, Skill.Acrobatics)))
+    fun G4_remarkableAthleteHalfProficiencyRoundedUp() {
+        // 2014: it comes at Champion 7, so Hagar (Champion 4) hasn't got it yet
+        assertFalse(hagar.remarkableAthlete)
+        assertEquals(emptyList(), hagar.advantageFrom(D20Test.Initiative))
         assertEquals(hagar.mod(Ability.DEX), hagar.initiative)
-        assertFalse(Character(className = "Fighter", level = 2, subclass = "Champion").remarkableAthlete)
-        assertFalse(Character(className = "Fighter", level = 5, subclass = "Battle Master").remarkableAthlete)
+        // Champion 7, proficiency +3: +2 (half, rounded up) on STR, DEX and CON checks without proficiency
+        val champ = Character(className = "Fighter", level = 7, subclass = "Champion", skills = mapOf(Skill.Athletics to Training.Proficient))
+        assertTrue(champ.remarkableAthlete)
+        assertEquals(2, champ.check(Ability.STR))
+        assertEquals(2, champ.check(Ability.CON))
+        assertEquals(2, champ.initiative)
+        assertEquals(2, champ.skill(Skill.Acrobatics))
+        assertEquals(3, champ.skill(Skill.Athletics))
+        assertEquals(0, champ.check(Ability.INT))
+        assertEquals(0, champ.skill(Skill.Perception))
+        assertEquals(0, champ.save(Ability.DEX))
+        // no advantage in 2014
+        assertEquals(emptyList(), champ.advantageFrom(D20Test.Initiative))
+        // with Jack of All Trades as well, the better of the two, not both: proficiency +5 is +3 vs +2
+        val both = Character(className = "Fighter", level = 13, subclass = "Champion", multiclass = listOf(ClassLevel("Bard", 2)))
+        assertEquals(3, both.check(Ability.STR))
+        assertEquals(2, both.check(Ability.INT))
+        assertFalse(Character(className = "Fighter", level = 6, subclass = "Champion").remarkableAthlete)
+        assertFalse(Character(className = "Fighter", level = 7, subclass = "Battle Master").remarkableAthlete)
+    }
+
+    @Test
+    fun G4_remarkableAthlete2024IsAdvantage() {
+        // 2024: advantage on Initiative and Athletics at Champion 3, and the numbers don't change
+        val hagar24 = hagar.copy(rules = Edition.E2024)
+        assertTrue(hagar24.remarkableAthlete)
+        assertEquals(listOf("Remarkable Athlete"), hagar24.advantageFrom(D20Test.Initiative))
+        assertEquals(listOf("Remarkable Athlete"), hagar24.advantageFrom(D20Test.Check(Ability.STR, Skill.Athletics)))
+        assertEquals(emptyList(), hagar24.advantageFrom(D20Test.Check(Ability.STR)))
+        assertEquals(emptyList(), hagar24.advantageFrom(D20Test.Check(Ability.DEX, Skill.Acrobatics)))
+        assertEquals(hagar24.mod(Ability.DEX), hagar24.initiative)
+        assertFalse(Character(className = "Fighter", level = 2, subclass = "Champion", rules = Edition.E2024).remarkableAthlete)
+    }
+
+    @Test
+    fun G5_rulesDefaultTo2014AndOldSavesLoadAs2014() {
+        assertEquals(Edition.E2014, Character().rules)
+        assertEquals(Edition.E2014, hagar.rules)
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        assertEquals(Edition.E2014, json.decodeFromString<Character>("""{"name":"Old"}""").rules)
+        assertTrue("\"rules\":\"2024\"" in json.encodeToString(Character.serializer(), Character(rules = Edition.E2024)))
+        assertEquals(Edition.E2024, json.decodeFromString<Character>("""{"rules":"2024"}""").rules)
     }
 
     // H. Dice
@@ -317,18 +398,42 @@ class RulesSpecTest {
     @Test
     fun H3_attackNat20CritsNat1Misses() {
         val twenty = roll("d20+0", Edge.None, 20)
-        assertEquals(AttackResult.CriticalHit, twenty.attackResult)
+        assertEquals(AttackResult.CriticalHit, twenty.attackResult())
         assertTrue(twenty.hits(ac = 30))
         val one = roll("d20+30", Edge.None, 1)
-        assertEquals(AttackResult.Miss, one.attackResult)
+        assertEquals(AttackResult.Miss, one.attackResult())
         assertFalse(one.hits(ac = 10))
         // otherwise the total against AC decides
-        assertNull(roll("d20+5", Edge.None, 12).attackResult)
+        assertNull(roll("d20+5", Edge.None, 12).attackResult())
         assertTrue(roll("d20+5", Edge.None, 12).hits(ac = 17))
         assertFalse(roll("d20+5", Edge.None, 11).hits(ac = 17))
         // with advantage it's the kept die that counts
-        assertEquals(AttackResult.CriticalHit, roll("d20+5", Edge.Advantage, 3, 20).attackResult)
-        assertEquals(AttackResult.Miss, roll("d20+5", Edge.Disadvantage, 1, 20).attackResult)
+        assertEquals(AttackResult.CriticalHit, roll("d20+5", Edge.Advantage, 3, 20).attackResult())
+        assertEquals(AttackResult.Miss, roll("d20+5", Edge.Disadvantage, 1, 20).attackResult())
+    }
+
+    @Test
+    fun H3b_championCritsOn19Then18() {
+        // Improved Critical at Fighter 3: 19 or 20; Superior Critical at 15: 18 to 20
+        assertEquals(19, hagar.critOn)
+        assertEquals(20, Character(className = "Fighter", level = 2, subclass = "Champion").critOn)
+        assertEquals(19, Character(className = "Fighter", level = 14, subclass = "Champion").critOn)
+        assertEquals(18, Character(className = "Fighter", level = 15, subclass = "Champion").critOn)
+        assertEquals(20, Character(className = "Fighter", level = 15, subclass = "Battle Master").critOn)
+        assertEquals(20, Character(className = "Wizard", level = 5).critOn)
+        // a multiclass champion's fighter levels count
+        assertEquals(19, Character(className = "Wizard", level = 5, multiclass = listOf(ClassLevel("Fighter", 3, "Champion"))).critOn)
+        assertEquals(AttackResult.CriticalHit, roll("d20+5", Edge.None, 19).attackResult(critOn = 19))
+        assertTrue(roll("d20+0", Edge.None, 19).hits(ac = 30, critOn = 19))
+        assertNull(roll("d20+5", Edge.None, 19).attackResult())
+        assertEquals(AttackResult.CriticalHit, roll("d20+5", Edge.None, 18).attackResult(critOn = 18))
+        assertNull(roll("d20+5", Edge.None, 17).attackResult(critOn = 18))
+        // a natural 1 always misses
+        assertEquals(AttackResult.Miss, roll("d20+30", Edge.None, 1).attackResult(critOn = 18))
+        // the log keeps the range, so its tag and a reroll agree
+        assertEquals(AttackResult.CriticalHit, LoggedRoll("Blade", "d20+7", "[19] +7", 26, natural = 19, attack = true, critOn = 19).attackResult)
+        assertNull(LoggedRoll("Blade", "d20+7", "[19] +7", 26, natural = 19, attack = true).attackResult)
+        assertNull(LoggedRoll("STR check", "d20+5", "[20] +5", 25, natural = 20).attackResult)
     }
 
     @Test

@@ -146,19 +146,22 @@ data class Roll(val expr: DiceExpr, val edge: Edge, val parts: List<DiceExpr.Par
         }.removePrefix("+")
 }
 
-/** On an attack roll the d20 can settle it alone: a natural 20 hits and is a critical hit, a natural 1 misses. */
+/** On an attack roll the d20 can settle it alone: a natural 20 (or a Champion's 19) hits and is a critical hit, a natural 1 misses. */
 enum class AttackResult { CriticalHit, Miss }
 
-/** Read as an attack roll: a natural 20 or 1 decides it; null when the total against AC does. */
-val Roll.attackResult: AttackResult?
-    get() = when (natural) {
-        20 -> AttackResult.CriticalHit
-        1 -> AttackResult.Miss
-        else -> null
-    }
+/** The attack result of a natural d20 [natural] when [critOn] or higher is a critical hit; a 1 always misses. */
+fun attackResultOf(natural: Int?, critOn: Int = 20): AttackResult? = when {
+    natural == null -> null
+    natural == 1 -> AttackResult.Miss
+    natural >= critOn -> AttackResult.CriticalHit
+    else -> null
+}
 
-/** This attack roll against [ac]: a natural 20 always hits, a natural 1 never does. Checks and saves have no such rule. */
-fun Roll.hits(ac: Int): Boolean = when (attackResult) {
+/** Read as an attack roll that crits on [critOn] or higher: the d20 decides it; null when the total against AC does. */
+fun Roll.attackResult(critOn: Int = 20): AttackResult? = attackResultOf(natural, critOn)
+
+/** This attack roll against [ac]: a critical hit always hits, a natural 1 never does. Checks and saves have no such rule. */
+fun Roll.hits(ac: Int, critOn: Int = 20): Boolean = when (attackResult(critOn)) {
     AttackResult.CriticalHit -> true
     AttackResult.Miss -> false
     null -> total >= ac

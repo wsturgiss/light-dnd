@@ -20,6 +20,7 @@ import com.wsturgiss.dnd.model.Ability
 import com.wsturgiss.dnd.model.Attack
 import com.wsturgiss.dnd.model.Character
 import com.wsturgiss.dnd.model.D20Test
+import com.wsturgiss.dnd.model.Edition
 import com.wsturgiss.dnd.model.Item
 import com.wsturgiss.dnd.model.Srd
 import com.wsturgiss.dnd.model.Weapon
@@ -75,7 +76,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
                 Stat("PASSIVE", "${c.passivePerception}", Modifier.weight(1f), null)
             }
             c.tooHeavy?.let { T("Speed -10: ${it.name} needs STR ${it.strength}.", Style.Small, dim = true) }
-            if (c.untrainedShield) T("Shield: no training, so no +2 AC.", Style.Small, dim = true)
+            if (c.untrainedShield && c.rules == Edition.E2024) T("Shield: no training, so no +2 AC.", Style.Small, dim = true)
             KeyValueRow(
                 "Conditions",
                 c.conditions.sorted().joinToString(", ").ifEmpty { "none" },
@@ -88,7 +89,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             if (weapons.isNotEmpty()) {
                 Section("Attacks")
                 weapons.forEach { a -> AttackRow(a) { attack(c, a) } }
-                T("A natural 20 rolls the damage too, its dice doubled.", Style.Small, dim = true)
+                T("A natural ${critRange(c.critOn)} rolls the damage too, its dice doubled.", Style.Small, dim = true)
             }
 
             Section("Abilities")
@@ -100,9 +101,9 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             }
             Ability.entries.forEach { a ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    TapRow(onClick = { roll(c.request("d20${signed(c.mod(a))}", "${a.long} check", D20Test.Check(a))) }, Modifier.weight(2f)) {
+                    TapRow(onClick = { roll(c.request("d20${signed(c.check(a))}", "${a.long} check", D20Test.Check(a))) }, Modifier.weight(2f)) {
                         T("${a.short} ${c.score(a).toString().padStart(2)}", Style.Mono, Modifier.weight(1f))
-                        T(signed(c.mod(a)), Style.Mono, Modifier.weight(1f), align = TextAlign.End)
+                        T(signed(c.check(a)), Style.Mono, Modifier.weight(1f), align = TextAlign.End)
                     }
                     TapRow(onClick = { roll(c.request("d20${signed(c.save(a))}", "${a.long} save", D20Test.Save(a))) }, Modifier.weight(1f)) {
                         // P: proficient, so the save adds the proficiency bonus
@@ -115,7 +116,9 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
                     }
                 }
             }
-            c.untrainedArmor?.let { T("DIS on STR and DEX: $it, untrained. No spellcasting in it.", Style.Small, dim = true) }
+            c.untrainedGear.takeIf { it.isNotEmpty() }?.let {
+                T("DIS on STR and DEX: ${it.joinToString(" and ")}, untrained. No spellcasting in it.", Style.Small, dim = true)
+            }
 
             Section("Skills")
             val stealthDis = c.stealthDisadvantageFrom
@@ -139,8 +142,15 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             }
             T("P proficient   E expertise", Style.Small, dim = true, modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()))
             if (stealthDis.isNotEmpty()) T("DIS on Stealth: ${stealthDis.joinToString(", ")}", Style.Small, dim = true)
-            if (c.remarkableAthlete) T("ADV on Initiative and Athletics: Remarkable Athlete", Style.Small, dim = true)
-            if (c.jackOfAllTrades) T("Jack of All Trades: ${signed(c.proficiency / 2)} on skills without P", Style.Small, dim = true)
+            if (c.rules == Edition.E2014) {
+                if (c.remarkableAthlete) {
+                    T("Remarkable Athlete: ${signed((c.proficiency + 1) / 2)} on STR, DEX and CON checks without P, Initiative too", Style.Small, dim = true)
+                }
+                if (c.jackOfAllTrades) T("Jack of All Trades: ${signed(c.proficiency / 2)} on any check without P, Initiative too", Style.Small, dim = true)
+            } else {
+                if (c.remarkableAthlete) T("ADV on Initiative and Athletics: Remarkable Athlete", Style.Small, dim = true)
+                if (c.jackOfAllTrades) T("Jack of All Trades: ${signed(c.proficiency / 2)} on skills without P", Style.Small, dim = true)
+            }
         }
     }
 
@@ -262,4 +272,9 @@ fun AttackRow(a: Attack, onClick: () -> Unit) {
         T(signed(a.toHit) + "  ", Style.Mono)
         T(listOfNotNull(a.damage?.toString(), a.damageType.ifEmpty { null }).joinToString(" "), Style.MonoSmall, dim = true, maxLines = 1)
     }
+    // a crit range that isn't just 20
+    if (a.critOn < 20) T("crit ${critRange(a.critOn)}", Style.Small, dim = true)
 }
+
+/** "20", or "19-20" for a Champion. */
+fun critRange(critOn: Int): String = if (critOn >= 20) "20" else "$critOn-20"

@@ -30,11 +30,16 @@ data class LoggedRoll(
     val at: Long = System.currentTimeMillis(),
     /** Who rolled it, by name; null on rolls from before this was kept. */
     val by: String? = null,
-    /** An attack roll, where a natural 20 is a critical hit and a natural 1 a miss. */
+    /** An attack roll, where a natural 20 (or [critOn] and up) is a critical hit and a natural 1 a miss. */
     val attack: Boolean = false,
     /** An attack's damage, so rolling it again from the log still follows through. */
     val damage: String? = null,
-)
+    /** The lowest natural d20 that was a critical hit on this attack: 19 for a Champion. */
+    val critOn: Int = 20,
+) {
+    /** An attack roll the d20 decided: a critical hit, or a natural 1's miss. */
+    val attackResult: AttackResult? get() = if (attack) attackResultOf(natural, critOn) else null
+}
 
 @Serializable
 data class SaveFile(
@@ -190,10 +195,10 @@ object Store {
         save()
     }
 
-    fun record(label: String, roll: Roll, attack: Boolean = false, damage: String? = null): LoggedRoll {
+    fun record(label: String, roll: Roll, attack: Boolean = false, damage: String? = null, critOn: Int = 20): LoggedRoll {
         val entry = LoggedRoll(
             label, roll.expr.toString(), roll.detail, roll.total, roll.edge, roll.natural, roll.edgeDice,
-            by = character.name, attack = attack, damage = damage,
+            by = character.name, attack = attack, damage = damage, critOn = critOn,
         )
         _state.update { it.copy(log = (listOf(entry) + it.log).take(LOG_LIMIT)) }
         save()

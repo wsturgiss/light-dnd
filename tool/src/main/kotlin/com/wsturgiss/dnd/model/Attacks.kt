@@ -19,24 +19,26 @@ data class Attack(
     /** The ability behind the roll, for what gives it advantage or disadvantage. */
     val ability: Ability,
     val damageType: String = "",
+    /** The lowest natural d20 that's a critical hit ([Character.critOn] for a weapon). */
+    val critOn: Int = 20,
 ) {
     val expr: DiceExpr get() = DiceExpr.parse("d20${signed(toHit)}")!!
 }
 
 /** An attack roll and what came of it: on a critical hit, the damage too. */
-data class AttackOutcome(val attack: Roll, val damage: Roll?) {
-    val result: AttackResult? get() = attack.attackResult
+data class AttackOutcome(val attack: Roll, val damage: Roll?, val critOn: Int = 20) {
+    val result: AttackResult? get() = attack.attackResult(critOn)
 }
 
 /**
- * Rolls an attack. A natural 20 is a critical hit, and its [damage] is rolled straight away with
- * every die twice and the modifiers once; a natural 1 misses and has no damage. Otherwise the
- * damage waits for the table to say whether it hit ([rollDamage]).
+ * Rolls an attack. A natural [critOn] or higher (20, a Champion's 19) is a critical hit, and its
+ * [damage] is rolled straight away with every die twice and the modifiers once; a natural 1
+ * misses and has no damage. Otherwise the damage waits for the table to say whether it hit ([rollDamage]).
  */
-fun rollAttack(attack: DiceExpr, damage: DiceExpr?, edge: Edge = Edge.None, random: Random = Random.Default): AttackOutcome {
+fun rollAttack(attack: DiceExpr, damage: DiceExpr?, edge: Edge = Edge.None, random: Random = Random.Default, critOn: Int = 20): AttackOutcome {
     val roll = attack.roll(edge, random)
-    val crit = damage?.takeIf { roll.attackResult == AttackResult.CriticalHit }?.let { rollDamage(it, critical = true, random) }
-    return AttackOutcome(roll, crit)
+    val crit = damage?.takeIf { roll.attackResult(critOn) == AttackResult.CriticalHit }?.let { rollDamage(it, critical = true, random) }
+    return AttackOutcome(roll, crit, critOn)
 }
 
 /** Damage on a hit; on a critical hit every die twice, flat modifiers once. */
@@ -89,7 +91,8 @@ fun Character.proficientWith(w: Weapon): Boolean {
 /**
  * Attacking with [item], which is [w]: STR, or DEX for a ranged weapon, the better of the two with
  * Finesse; the proficiency bonus if trained; the item's magic bonus to hit and to damage; and its
- * extra damage dice (a Flame Tongue's 2d6), which a critical hit doubles like the weapon's own.
+ * extra damage dice (a Flame Tongue's 2d6), which a critical hit doubles like the weapon's own;
+ * and the Champion's crit range.
  */
 fun Character.weaponAttack(item: Item, w: Weapon): Attack {
     val ability = when {
@@ -101,7 +104,7 @@ fun Character.weaponAttack(item: Item, w: Weapon): Attack {
     val toHit = mod(ability) + (if (proficientWith(w)) proficiency else 0) + magic
     val extra = DiceExpr.parse(item.extraDamage)?.terms.orEmpty()
     val terms = DiceExpr.parse(w.damage)!!.terms + extra + DiceExpr.Flat(mod(ability)) + DiceExpr.Flat(magic)
-    return Attack(item.name, toHit, DiceExpr(DiceExpr.merge(terms)), ability, w.damageType)
+    return Attack(item.name, toHit, DiceExpr(DiceExpr.merge(terms)), ability, w.damageType, critOn)
 }
 
 private val SPELL_DAMAGE = Regex("""(\d+)d(\d+) (?:(\w+) )?damage""")

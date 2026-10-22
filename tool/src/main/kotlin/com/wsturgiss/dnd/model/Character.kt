@@ -43,6 +43,16 @@ enum class Training(val mark: String, val multiplier: Int) {
     fun next(): Training = entries[(ordinal + 1) % entries.size]
 }
 
+/** Which rules the sheet follows where the 2014 and 2024 books differ. 2014 unless set. */
+@Serializable
+enum class Edition(val label: String) {
+    @SerialName("2014") E2014("2014"),
+    @SerialName("2024") E2024("2024"),
+    ;
+
+    fun next(): Edition = entries[(ordinal + 1) % entries.size]
+}
+
 enum class Coin(val label: String, val inCopper: Int) {
     CP("cp", 1),
     SP("sp", 10),
@@ -142,6 +152,7 @@ data class Character(
     val inspiration: Boolean = false,
     /** Free text: what an import couldn't fit on the sheet, backstory, anything. */
     val notes: String = "",
+    val rules: Edition = Edition.E2014,
 ) {
     val proficiency: Int get() = 2 + (level.coerceIn(1, 20) - 1) / 4
 
@@ -195,23 +206,59 @@ data class Character(
     fun save(a: Ability): Int = mod(a) + if (a in saves) proficiency else 0
     fun training(s: Skill): Training = skills[s] ?: Training.None
     fun skill(s: Skill): Int =
-        mod(s.ability) + proficiency * training(s).multiplier + if (training(s) == Training.None && jackOfAllTrades) proficiency / 2 else 0
+        mod(s.ability) + proficiency * training(s).multiplier + if (training(s) == Training.None) untrainedBonus(D20Test.Check(s.ability, s)) else 0
 
-    /** Bard, 2nd level: half the proficiency bonus, rounded down, on checks with a skill you aren't proficient in. */
+    /** An ability check with no skill: the modifier, and [untrainedBonus]. */
+    fun check(a: Ability): Int = mod(a) + untrainedBonus(D20Test.Check(a))
+
+    /** Bard, 2nd level: half the proficiency bonus, rounded down, on checks without proficiency (2024: skill checks only). */
     val jackOfAllTrades: Boolean get() = levelIn("Bard") >= 2
 
-    /** Champion, 3rd level (2024): advantage on Initiative and on Strength (Athletics) checks. */
-    val remarkableAthlete: Boolean get() = levelIn("Fighter") >= 3 && subclassOf("Fighter") == "Champion"
+    /**
+     * Champion's Remarkable Athlete. 2014, 7th level: half the proficiency bonus, rounded up, on
+     * STR, DEX and CON checks without proficiency. 2024, 3rd level: advantage on Initiative and Athletics.
+     */
+    val remarkableAthlete: Boolean
+        get() = subclassOf("Fighter") == "Champion" && levelIn("Fighter") >= if (rules == Edition.E2014) 7 else 3
+
+    /**
+     * What a check without proficiency adds: Jack of All Trades, or 2014's Remarkable Athlete.
+     * Both are the proficiency bonus, which a roll only ever adds once, so the better of the two.
+     */
+    fun untrainedBonus(test: D20Test): Int {
+        if (test !is D20Test.Check && test != D20Test.Initiative) return 0
+        val skill = (test as? D20Test.Check)?.skill
+        val jack = if (jackOfAllTrades && (rules == Edition.E2014 || skill != null)) proficiency / 2 else 0
+        val athlete = if (rules == Edition.E2014 && remarkableAthlete && test.ability in REMARKABLE_ABILITIES) (proficiency + 1) / 2 else 0
+        return maxOf(jack, athlete)
+    }
 
     /** What gives [test] advantage, by name. */
     fun advantageFrom(test: D20Test): List<String> = buildList {
-        if (remarkableAthlete && (test == D20Test.Initiative || test is D20Test.Check && test.skill == Skill.Athletics)) add("Remarkable Athlete")
+        val athletic = test == D20Test.Initiative || test is D20Test.Check && test.skill == Skill.Athletics
+        if (rules == Edition.E2024 && remarkableAthlete && athletic) add("Remarkable Athlete")
     }
 
-    /** Worn armor, DEX, shield and Unarmored Defense, worked out; the Defense style's +1 in armor; plus [acBonus]. */
+    /**
+     * The lowest d20 that's a critical hit on a weapon attack: 19 with the Champion's Improved
+     * Critical (Fighter 3), 18 with Superior Critical (Fighter 15); else 20.
+     */
+    val critOn: Int
+        get() = if (subclassOf("Fighter") != "Champion") 20 else when (levelIn("Fighter")) {
+            in 15..20 -> 18
+            in 3..14 -> 19
+            else -> 20
+        }
+
+    /**
+     * Worn armor, DEX, shield and Unarmored Defense, worked out; the Defense style's +1 in armor;
+     * plus [acBonus]. A shield's +2 needs training in 2024, not in 2014.
+     */
     val ac: Int
-        get() = armorClass(ARMOR.find { it.name == wearing } ?: ARMOR.first(), shield, scores, classInfo(className), shieldTraining) +
-            (if (wearing != null && feats.any { it.name == "Defense" }) 1 else 0) + acBonus
+        get() = armorClass(
+            ARMOR.find { it.name == wearing } ?: ARMOR.first(), shield, scores, classInfo(className),
+            shieldAc = rules == Edition.E2014 || shieldTraining,
+        ) + (if (wearing != null && feats.any { it.name == "Defense" }) 1 else 0) + acBonus
 
     /** The bag item is armor or a shield, so it can be worn. */
     fun wearable(item: Item): Boolean = item.name == "Shield" || ARMOR.any { it.name == item.name && it.weight != ArmorWeight.None }
@@ -239,9 +286,13 @@ data class Character(
             items.filter { givesStealthDisadvantage(it) && (if (wearable(it)) isWorn(it) else it.qty > 0) }.forEach { add(it.name) }
         }.distinct()
 
-    /** The worn armor, if it needs more Strength than the wearer has. */
+    /** The worn armor, if it needs more Strength than the wearer has. A 2014 dwarf's speed isn't slowed by heavy armor. */
     val tooHeavy: Armor?
-        get() = ARMOR.find { it.name == wearing }?.takeIf { it.strength > 0 && score(Ability.STR) < it.strength }
+        get() = ARMOR.find { it.name == wearing }
+            ?.takeIf { it.strength > 0 && score(Ability.STR) < it.strength && !(rules == Edition.E2014 && isDwarf) }
+
+    /** "Dwarf", or a subrace as D&D Beyond names it ("Hill Dwarf"). */
+    val isDwarf: Boolean get() = "dwarf" in species.lowercase()
 
     /** Walking speed now: [baseSpeed], less 10 feet in armor too heavy for you. */
     val speed: Int get() = (baseSpeed - if (tooHeavy != null) HEAVY_ARMOR_SLOWDOWN else 0).coerceAtLeast(0)
@@ -255,28 +306,33 @@ data class Character(
             return ArmorWeight.entries.filter { "${it.name.lowercase()} armor" in t }.toSet()
         }
 
-    /** The worn armor, by name, if the character isn't trained with it (2024: DIS on STR and DEX, no spells). */
+    /** The worn armor, by name, if the character isn't trained with it: DIS on STR and DEX, no spells. */
     val untrainedArmor: String?
         get() = ARMOR.find { it.name == wearing }?.takeIf { it.weight != ArmorWeight.None && it.weight !in armorTraining }?.name
 
-    val canCastSpells: Boolean get() = untrainedArmor == null
+    /** Everything worn without training that brings DIS on STR and DEX and stops spells: armor, and in 2014 a shield. */
+    val untrainedGear: List<String>
+        get() = listOfNotNull(untrainedArmor, "Shield".takeIf { untrainedShield && rules == Edition.E2014 })
+
+    val canCastSpells: Boolean get() = untrainedGear.isEmpty()
 
     /** Trained with shields: "Shields" in [training], or the class's when none is recorded. */
     val shieldTraining: Boolean
         get() = if (training.isEmpty()) classInfo(className)?.shields == true
         else training.any { it.trim().lowercase() in setOf("shield", "shields") }
 
-    /** Holding a shield without training: it gives no AC (2024). */
+    /** Holding a shield without training. 2014: the penalties of armor worn untrained, still +2 AC. 2024: no AC from it. */
     val untrainedShield: Boolean get() = shield && !shieldTraining
 
-    /** What gives [test] disadvantage, by name: armor worn untrained, and on Stealth [stealthDisadvantageFrom]. */
+    /** What gives [test] disadvantage, by name: gear worn untrained ([untrainedGear]), and on Stealth [stealthDisadvantageFrom]. */
     fun disadvantageFrom(test: D20Test): List<String> = buildList {
-        val untrained = untrainedArmor?.takeIf { test.ability == Ability.STR || test.ability == Ability.DEX }
-        untrained?.let { add("$it, untrained") }
-        if (test is D20Test.Check && test.skill == Skill.Stealth) addAll(stealthDisadvantageFrom - listOfNotNull(untrained))
+        val untrained = untrainedGear.takeIf { test.ability == Ability.STR || test.ability == Ability.DEX }.orEmpty()
+        untrained.forEach { add("$it, untrained") }
+        if (test is D20Test.Check && test.skill == Skill.Stealth) addAll(stealthDisadvantageFrom - untrained.toSet())
     }
 
-    val initiative: Int get() = mod(Ability.DEX)
+    /** A DEX check: the modifier, and in 2014 Jack of All Trades or Remarkable Athlete ([untrainedBonus]). */
+    val initiative: Int get() = mod(Ability.DEX) + untrainedBonus(D20Test.Initiative)
     val passivePerception: Int get() = 10 + skill(Skill.Perception)
 
     val carried: Double get() = items.sumOf { it.weight * it.qty }
@@ -315,6 +371,9 @@ fun Character.fromTypedAc(): Character {
 }
 
 fun signed(n: Int): String = if (n >= 0) "+$n" else "$n"
+
+/** The checks 2014's Remarkable Athlete adds to. */
+private val REMARKABLE_ABILITIES = setOf(Ability.STR, Ability.DEX, Ability.CON)
 
 /** Pact magic and multiclassing aside, this is the full caster table — a sensible default to edit from. */
 val FULL_CASTER_SLOTS: List<List<Int>> = listOf(

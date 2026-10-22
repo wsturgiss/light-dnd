@@ -69,6 +69,8 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
             if (c.level < 20) {
                 KeyValueRow("Level up", "${c.level} → ${c.level + 1}", { navigateTo(screenFactory = { LevelUpScreen(it) }) })
             }
+            // where the books differ: Jack of All Trades, Remarkable Athlete, shields, dwarves in heavy armor
+            KeyValueRow("Rules", c.rules.label, { Store.edit { it.copy(rules = it.rules.next()) } }, valueStyle = Style.Body)
 
             Section("Scores")
             Ability.entries.forEach { a ->
@@ -139,7 +141,7 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
                 }
             })
             KeyValueRow("Feats", c.feats.joinToString(", ") { it.name }.ifEmpty { "none" }, valueStyle = Style.Small, onClick = {
-                val all = made.feats.values.flatten().map { n -> Option(n) } + Option(TOUGH_FEAT, "not in the SRD: +2 max HP a level")
+                val all = made.feats.values.flatten().map { n -> Option(n) } + Option(TOUGH_FEAT, "not in the SRD: +2 max HP a level, every level so far")
                 navigateTo(
                     screenFactory = { MultiPickScreen(it, "Feats", null, all, c.feats.map { f -> f.name }.toSet(), Kind.Feats) },
                     resultCallback = { names ->

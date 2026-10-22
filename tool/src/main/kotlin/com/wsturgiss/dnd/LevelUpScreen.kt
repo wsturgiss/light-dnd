@@ -26,6 +26,8 @@ import com.wsturgiss.dnd.model.levelPlan
 import com.wsturgiss.dnd.model.levelUp
 import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.model.speciesInfo
+import com.wsturgiss.dnd.model.TOUGH_FEAT
+import com.wsturgiss.dnd.model.TOUGH_HP_PER_LEVEL
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.Section
 import com.wsturgiss.dnd.ui.Style
@@ -42,6 +44,8 @@ class LevelUpScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seale
     private var rolledHit by mutableStateOf<Int?>(null)
     private var useRoll by mutableStateOf(false)
     private var raise by mutableStateOf(mapOf<Ability, Int>())
+    /** The Tough feat instead of the Ability Score Improvement. */
+    private var takeTough by mutableStateOf(false)
     private var expertise by mutableStateOf(setOf<Skill>())
     /** Null takes the SRD's subclass; set only when you type another. */
     private var subclass by mutableStateOf<String?>(null)
@@ -84,7 +88,11 @@ class LevelUpScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seale
             feats = ch.feats + listOfNotNull(fightingStyle?.takeIf { styleDue }?.let { Feat(it, "Fighting Style") }),
             spells = (ch.spells + newCantrips + newSpells).distinct(),
         )
-        val after = c.levelUp(hit, raise, expertise, boonCap)
+        val toughDue = plan.asi && c.feats.none { it.name == TOUGH_FEAT }
+        // Tough taken now counts for every level, this one too
+        fun levelled(ch: Character) = if (takeTough && toughDue) ch.levelUp(hit, emptyMap(), expertise, boonCap).let { it.withFeats(it.feats + Feat(TOUGH_FEAT)) }
+        else ch.levelUp(hit, raise, expertise, boonCap)
+        val after = levelled(c)
         val hpGain = after.maxHp - c.maxHp
 
         ScrollPage(
@@ -92,7 +100,7 @@ class LevelUpScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seale
             title = "Level up",
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.ACCEPT, contentDescription = "Level up", onClick = {
-                Store.edit { finish(it.levelUp(hit, raise, expertise, boonCap)) }
+                Store.edit { finish(levelled(it)) }
                 goBack(null)
             }),
         ) {
@@ -184,7 +192,15 @@ class LevelUpScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seale
                 modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()),
             )
 
-            if (budget > 0) {
+            if (budget > 0 && toughDue) {
+                Section("Feat")
+                TapRow(onClick = { takeTough = !takeTough }) {
+                    T(if (takeTough) "[x] " else "[ ] ", Style.Mono, dim = !takeTough)
+                    T("Take Tough instead", Style.Body, Modifier.weight(1f))
+                    T("+${TOUGH_HP_PER_LEVEL * plan.to} HP", Style.Mono)
+                }
+            }
+            if (budget > 0 && !(takeTough && toughDue)) {
                 Section(if (plan.epicBoon) "Epic Boon" else "Ability scores")
                 T(
                     if (plan.epicBoon) "+1 to one score, up to 30. Taking a different boon? Leave these and note it."

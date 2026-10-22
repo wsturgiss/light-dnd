@@ -140,6 +140,21 @@ class AttacksTest {
     }
 
     @Test
+    fun aChampionsWeaponCritsOn19() {
+        val champ = fighter(Ability.STR to 16).copy(level = 3, subclass = "Champion")
+        val a = champ.weaponAttack(Item(1, "Longsword"), weapon("Longsword"))
+        assertEquals(19, a.critOn)
+        // d20 19: a critical hit, the damage rolled straight away and doubled: 2d8 = 3 5
+        val out = rollAttack(a.expr, a.damage, Edge.None, Faces(19, 3, 5), critOn = a.critOn)
+        assertEquals(AttackResult.CriticalHit, out.result)
+        assertEquals(3 + 5 + 3, out.damage!!.total)
+        // 18 isn't, until Superior Critical at 15
+        assertNull(rollAttack(a.expr, a.damage, Edge.None, Faces(18), critOn = a.critOn).damage)
+        // a spell attack has no such range
+        assertEquals(20, Character(className = "Wizard", level = 3, multiclass = listOf(ClassLevel("Fighter", 3, "Champion"))).spellAttack(spell("Fire Bolt"))!!.critOn)
+    }
+
+    @Test
     fun spellAttacksUseTheCastingAbilityAndScaleCantrips() {
         val wiz = Character(className = "Wizard", level = 1, scores = Ability.entries.associateWith { 10 } + (Ability.INT to 16))
         val bolt = wiz.spellAttack(spell("Fire Bolt"))!!

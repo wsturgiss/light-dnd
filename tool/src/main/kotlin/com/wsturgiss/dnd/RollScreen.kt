@@ -33,6 +33,7 @@ import com.thelightphone.sdk.ui.LightThemeTokens
 import com.wsturgiss.dnd.ui.d20Icon
 import com.wsturgiss.dnd.ui.TOTAL_SCALE
 import com.thelightphone.sdk.ui.gridUnitsAsDp
+import com.wsturgiss.dnd.model.AttackResult
 import com.wsturgiss.dnd.model.DiceCamera
 import com.wsturgiss.dnd.model.DiceExpr
 import com.wsturgiss.dnd.model.Edge
@@ -82,6 +83,8 @@ class RollScreen(
         )
     /** An attack roll, so a natural 20 or 1 decides it; gone with a new expression. */
     private var attack by mutableStateOf(request?.attack == true)
+    /** The lowest natural d20 that crits on [attack]: 19 for a Champion. */
+    private var critOn by mutableStateOf(request?.critOn ?: 20)
     /** Damage from a critical hit: every die twice. Only for rolls that aren't a d20 test. */
     private var crit by mutableStateOf(false)
     /** The attack's damage on a hit; kept for rerolls of the attack, gone with a new expression. */
@@ -109,9 +112,9 @@ class RollScreen(
         expr = e
         followed = null
         if (attack) {
-            // a natural 20 goes straight on to the damage, every die twice
-            val out = rollAttack(e, damage, rolledEdge)
-            val hit = Store.record(label ?: e.toString(), out.attack, attack = true, damage = damage?.toString())
+            // a critical hit (a natural 20, or 19 for a Champion) goes straight on to the damage, every die twice
+            val out = rollAttack(e, damage, rolledEdge, critOn = critOn)
+            val hit = Store.record(label ?: e.toString(), out.attack, attack = true, damage = damage?.toString(), critOn = critOn)
             if (out.damage != null) showDamage(hit, out.damage, critical = true) else show(hit, out.attack)
             return
         }
@@ -146,6 +149,7 @@ class RollScreen(
             imposed = emptyList()
             granted = emptyList()
             attack = false
+            critOn = 20
             crit = false
             damage = null
             followed = null
@@ -168,6 +172,7 @@ class RollScreen(
         imposed = emptyList()
         granted = emptyList()
         attack = false
+        critOn = 20
         crit = false
         damage = null
         followed = null
@@ -240,7 +245,7 @@ class RollScreen(
             }
             T(r.total.toString(), Style.Total)
             val tag = when {
-                r.natural == 20 || r.natural == 1 -> naturalTag(r)!!
+                naturalTag(r) != null -> naturalTag(r)!!
                 r.edge == Edge.Advantage -> "advantage"
                 r.edge == Edge.Disadvantage -> "disadvantage"
                 else -> ""
@@ -379,16 +384,20 @@ class RollScreen(
         naturalTag(r)?.let { T(it, Style.Mono) }
     }
 
-    /** A natural 20 or 1, and on an attack roll what it means: a critical hit, a miss. */
-    private fun naturalTag(r: LoggedRoll): String? = when (r.natural) {
-        20 -> if (r.attack) "CRITICAL HIT" else "NATURAL 20"
-        1 -> if (r.attack) "AUTO MISS" else "NATURAL 1"
-        else -> null
+    /** A natural 20 or 1, and on an attack roll what it means: a critical hit (a Champion's 19 too), a miss. */
+    private fun naturalTag(r: LoggedRoll): String? = when (r.attackResult) {
+        AttackResult.CriticalHit -> "CRITICAL HIT"
+        AttackResult.Miss -> "AUTO MISS"
+        null -> when (r.natural) {
+            20 -> "NATURAL 20"
+            1 -> "NATURAL 1"
+            else -> null
+        }
     }
 
     /**
-     * After an attack roll that isn't a natural 20 or 1: the damage, for when the table says it hit.
-     * A natural 20 has rolled it already; a natural 1 misses, so there's nothing to roll.
+     * After an attack roll the d20 didn't decide: the damage, for when the table says it hit.
+     * A critical hit has rolled it already; a natural 1 misses, so there's nothing to roll.
      */
     @Composable
     private fun DamageRow() {
@@ -480,7 +489,7 @@ class LogScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
             KeyValueRow("Dice animation", save.diceCamera.label, onClick = { Store.cycleDiceCamera() })
             if (save.log.isEmpty()) T("Nothing rolled yet.", Style.Body, dim = true, modifier = Modifier.padding(top = 1f.gridUnitsAsDp()))
             save.log.forEach { r ->
-                TapRow(onClick = { roll(RollRequest(r.expr, r.label, r.edge, attack = r.attack, damage = r.damage)) }) {
+                TapRow(onClick = { roll(RollRequest(r.expr, r.label, r.edge, attack = r.attack, damage = r.damage, critOn = r.critOn)) }) {
                     Column(Modifier.weight(1f)) {
                         T(r.label, Style.Body, maxLines = 1)
                         T(listOfNotNull(r.by, "${r.expr}  ${r.detail}").joinToString("  ·  "), Style.MonoSmall, dim = true, maxLines = 1)
