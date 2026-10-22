@@ -174,8 +174,9 @@ class LevelUpScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seale
             }
             val con = after.mod(Ability.CON)
             val dwarf = speciesInfo(c.species)?.hpPerLevel ?: 0
+            val tough = c.hpPerLevelBonus - dwarf
             T(
-                "$hit ${signed(con)} CON" + (if (dwarf > 0) " +$dwarf ${c.species}" else "") +
+                "$hit ${signed(con)} CON" + (if (dwarf > 0) " +$dwarf ${c.species}" else "") + (if (tough > 0) " +$tough Tough" else "") +
                     (if (con != c.mod(Ability.CON)) " +${(con - c.mod(Ability.CON)) * plan.from} for earlier levels" else "") +
                     "  =  +$hpGain HP, max ${after.maxHp}",
                 Style.Small,

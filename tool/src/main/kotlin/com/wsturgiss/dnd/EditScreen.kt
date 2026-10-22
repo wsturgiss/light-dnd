@@ -25,6 +25,7 @@ import com.wsturgiss.dnd.model.Store
 import com.wsturgiss.dnd.model.Srd
 import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Feat
+import com.wsturgiss.dnd.model.TOUGH_FEAT
 import com.wsturgiss.dnd.model.choiceName
 import com.wsturgiss.dnd.model.Training
 import com.wsturgiss.dnd.model.signed
@@ -138,12 +139,12 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
                 }
             })
             KeyValueRow("Feats", c.feats.joinToString(", ") { it.name }.ifEmpty { "none" }, valueStyle = Style.Small, onClick = {
-                val all = made.feats.values.flatten()
+                val all = made.feats.values.flatten().map { n -> Option(n) } + Option(TOUGH_FEAT, "not in the SRD: +2 max HP a level")
                 navigateTo(
-                    screenFactory = { MultiPickScreen(it, "Feats", null, all.map { n -> Option(n) }, c.feats.map { f -> f.name }.toSet(), Kind.Feats) },
+                    screenFactory = { MultiPickScreen(it, "Feats", null, all, c.feats.map { f -> f.name }.toSet(), Kind.Feats) },
                     resultCallback = { names ->
-                        // keep what each kept feat was taken for (Magic Initiate's list)
-                        Store.edit { ch -> ch.copy(feats = names.map { n -> ch.feats.find { it.name == n } ?: Feat(n) }) }
+                        // keep what each kept feat was taken for (Magic Initiate's list); Tough changes max HP
+                        Store.edit { ch -> ch.withFeats(names.map { n -> ch.feats.find { it.name == n } ?: Feat(n) }) }
                     },
                 )
             })

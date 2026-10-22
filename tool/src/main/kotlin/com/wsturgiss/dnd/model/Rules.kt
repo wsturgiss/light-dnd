@@ -429,7 +429,7 @@ data class Draft(
     /** Expertise slots open at this level, by the class's table. */
     val expertiseCount: Int get() = cls?.expertise?.filterKeys { it <= level }?.values?.sum() ?: 0
 
-    val hpPerLevelBonus: Int get() = speciesInfo?.hpPerLevel ?: 0
+    val hpPerLevelBonus: Int get() = (speciesInfo?.hpPerLevel ?: 0) + if (versatileFeat == TOUGH_FEAT) TOUGH_HP_PER_LEVEL else 0
 
     /** Full hit die at 1st level; the fixed average for each level after. Never less than 1 a level. */
     val maxHp: Int
@@ -561,7 +561,7 @@ fun Character.levelUp(hitRoll: Int, raise: Map<Ability, Int>, expertise: Set<Ski
     val newScores = scores + raise.mapValues { (a, n) -> (score(a) + n).coerceAtMost(maxOf(cap, score(a))) }
     val raised = copy(level = to, scores = newScores)
     val conGain = raised.mod(Ability.CON) - mod(Ability.CON)
-    val hpGain = maxOf(1, hitRoll + raised.mod(Ability.CON)) + (speciesInfo(species)?.hpPerLevel ?: 0) + conGain * level
+    val hpGain = maxOf(1, hitRoll + raised.mod(Ability.CON)) + hpPerLevelBonus + conGain * level
     return raised.copy(
         maxHp = maxHp + hpGain,
         hp = (hp + hpGain).coerceAtLeast(0),
@@ -572,6 +572,9 @@ fun Character.levelUp(hitRoll: Int, raise: Map<Ability, Int>, expertise: Set<Ski
 const val INITIATE_FROM_BACKGROUND = "background"
 const val INITIATE_FROM_SPECIES = "species"
 const val INITIATE_FEAT = "Magic Initiate"
+/** Not in the SRD, but common: +2 max HP a level, the levels before it too. */
+const val TOUGH_FEAT = "Tough"
+const val TOUGH_HP_PER_LEVEL = 2
 const val LANGUAGES_TO_PICK = 2
 
 /** The parts of a [Draft] that need the SRD's creation data. */

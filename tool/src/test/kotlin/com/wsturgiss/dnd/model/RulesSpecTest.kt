@@ -87,11 +87,17 @@ class RulesSpecTest {
         assertEquals(25 + 6 + 1, dwarf.levelUp(6, emptyMap(), emptySet()).maxHp)
     }
 
-    @Ignore("NOT IMPLEMENTED: no feat adds hit points; Tough isn't modelled")
     @Test
     fun C8_toughPlusTwoPerLevel() {
-        val tough = draft("Fighter", 1, 10).build().copy(feats = listOf(Feat("Tough")))
+        val tough = draft("Fighter", 1, 10).build().withFeats(listOf(Feat("Tough")))
+        assertEquals(10 + 2, tough.maxHp)
         assertEquals(10 + 2 + 6 + 2, tough.levelUp(6, emptyMap(), emptySet()).maxHp)
+        // taken later, it counts for the levels before it too; dropped, they go
+        val third = draft("Fighter", 3, 10).build()
+        assertEquals(third.maxHp + 6, third.withFeats(listOf(Feat("Tough"))).maxHp)
+        assertEquals(third.maxHp, third.withFeats(listOf(Feat("Tough"))).withFeats(emptyList()).maxHp)
+        assertEquals(10 + 2, draft("Fighter", 1, 10).copy(versatileFeat = "Tough").maxHp)
+        assertEquals(10 + 2 + 2 * (6 + 2), third.withFeats(listOf(Feat("Tough"))).fixedMaxHp)
     }
 
     @Test
@@ -102,11 +108,23 @@ class RulesSpecTest {
         assertEquals(36, f.levelUp(6, mapOf(Ability.CON to 1), emptySet()).maxHp)
     }
 
-    @Ignore("NOT IMPLEMENTED: a character has one class; no multiclass HP")
     @Test
     fun C10_multiclassOnlyFirstClassLevelIsMax() {
         // Fighter 1 / Wizard 1, CON 10: 10 + (6/2+1) = 14, not 10 + 6
-        assertEquals(14, Character(className = "Fighter", level = 2).maxHp)
+        assertEquals(14, Character(className = "Fighter", level = 2, multiclass = listOf(ClassLevel("Wizard", 1))).fixedMaxHp)
+        // Wizard first: 6 + (10/2+1) = 12
+        assertEquals(12, Character(className = "Wizard", level = 2, multiclass = listOf(ClassLevel("Fighter", 1))).fixedMaxHp)
+        // from D&D Beyond: the starting class first, the rest as multiclass levels
+        val mc = DdbImport.parse(
+            """{"data":{"name":"MC","classes":[
+               {"level":2,"definition":{"name":"Wizard"}},
+               {"level":3,"isStartingClass":true,"definition":{"name":"Fighter"}}]}}""",
+        )
+        assertEquals("Fighter", mc.className)
+        assertEquals(listOf(ClassLevel("Wizard", 2)), mc.multiclass)
+        assertEquals(3, mc.mainLevel)
+        assertEquals(10 + 2 * 6 + 2 * 4, mc.fixedMaxHp)
+        assertEquals("Fighter 3 / Wizard 2", mc.classLabel)
     }
 
     @Test

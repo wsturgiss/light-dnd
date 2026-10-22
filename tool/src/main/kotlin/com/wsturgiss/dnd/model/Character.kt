@@ -66,6 +66,10 @@ data class Item(
     val equipped: Boolean = false,
 )
 
+/** A class taken after the first, multiclassing: how many levels in it, and its subclass. */
+@Serializable
+data class ClassLevel(val name: String, val level: Int, val subclass: String = "")
+
 /** A feat taken, by its Look up name, and what it was taken for ("Cleric" for Magic Initiate). */
 @Serializable
 data class Feat(val name: String, val note: String = "")
@@ -79,8 +83,12 @@ data class Slots(val max: Int = 0, val used: Int = 0) {
 @Serializable
 data class Character(
     val name: String = "Nameless",
+    /** The class taken first; with [multiclass], the one whose 1st level had the full hit die. */
     val className: String = "Fighter",
+    /** Total, every class's levels together. */
     val level: Int = 1,
+    /** Classes beyond [className], for a multiclassed character; empty for one class. */
+    val multiclass: List<ClassLevel> = emptyList(),
     /** From the builder; blank on characters made before it, or by hand. */
     val species: String = "",
     /** The species' sub-choice, as its Look up name ("Elven Lineage: High Elf"); blank for none. */
@@ -116,6 +124,47 @@ data class Character(
     val notes: String = "",
 ) {
     val proficiency: Int get() = 2 + (level.coerceIn(1, 20) - 1) / 4
+
+    /** Levels in [className]: the total, less those in [multiclass]. */
+    val mainLevel: Int get() = (level - multiclass.sumOf { it.level }).coerceAtLeast(1)
+
+    fun levelIn(cls: String): Int = (if (cls == className) mainLevel else 0) + multiclass.filter { it.name == cls }.sumOf { it.level }
+
+    fun subclassOf(cls: String): String = if (cls == className) subclass else multiclass.firstOrNull { it.name == cls }?.subclass.orEmpty()
+
+    /** "Fighter", or "Fighter 3 / Wizard 2". */
+    val classLabel: String
+        get() = if (multiclass.isEmpty()) className else (listOf(ClassLevel(className, mainLevel)) + multiclass).joinToString(" / ") { "${it.name} ${it.level}" }
+
+    /** Extra hit points every level: Dwarven Toughness, the Tough feat. */
+    val hpPerLevelBonus: Int
+        get() = (speciesInfo(species)?.hpPerLevel ?: 0) + if (feats.any { it.name == TOUGH_FEAT }) TOUGH_HP_PER_LEVEL else 0
+
+    /**
+     * Max HP by the fixed table: the first class's hit die in full at 1st level, then each level's
+     * average (a multiclass's in its own die), CON every level, never less than 1 a level, plus
+     * [hpPerLevelBonus]. What the sheet would have without rolled HP or anything typed in.
+     */
+    val fixedMaxHp: Int
+        get() {
+            val con = mod(Ability.CON)
+            val dice = List(mainLevel) { classInfo(className) } + multiclass.flatMap { cl -> List(cl.level) { classInfo(cl.name) } }
+            return dice.mapIndexed { i, cls ->
+                maxOf(1, (if (i == 0) cls?.hitDie ?: 8 else cls?.averageHit ?: 5) + con) + hpPerLevelBonus
+            }.sum()
+        }
+
+    /** These feats instead: taking Tough adds 2 HP for every level so far, dropping it takes them off. */
+    fun withFeats(new: List<Feat>): Character {
+        fun tough(fs: List<Feat>) = fs.any { it.name == TOUGH_FEAT }
+        val change = when {
+            tough(new) && !tough(feats) -> TOUGH_HP_PER_LEVEL * level
+            !tough(new) && tough(feats) -> -TOUGH_HP_PER_LEVEL * level
+            else -> 0
+        }
+        val max = (maxHp + change).coerceAtLeast(1)
+        return copy(feats = new, maxHp = max, hp = (hp + change).coerceIn(0, max))
+    }
 
     fun score(a: Ability): Int = scores[a] ?: 10
     fun mod(a: Ability): Int = Math.floorDiv(score(a) - 10, 2)

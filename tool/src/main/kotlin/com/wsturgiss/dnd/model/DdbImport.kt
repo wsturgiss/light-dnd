@@ -58,17 +58,19 @@ object DdbImport {
     fun character(d: JsonObject): Character {
         val notes = mutableListOf<String>()
 
-        // classes: the app keeps one; the starting class (or the highest) takes the total level
+        // classes: the starting class (or the highest) first, the rest as multiclass levels
         val classes = d["classes"].arr.mapNotNull { it as? JsonObject }
         val main = classes.firstOrNull { it["isStartingClass"].bool == true } ?: classes.maxByOrNull { it["level"].int ?: 0 }
         val level = classes.sumOf { it["level"].int ?: 0 }.coerceIn(1, 20)
         val className = main?.obj("definition")?.get("name").str ?: "Fighter"
         val subclass = main?.obj("subclassDefinition")?.get("name").str.orEmpty()
-        if (classes.size > 1) {
-            notes += "Multiclass on D&D Beyond: " + classes.joinToString(", ") {
-                "${it.obj("definition")?.get("name").str ?: "?"} ${it["level"].int ?: 0}" +
-                    (it.obj("subclassDefinition")?.get("name").str?.let { s -> " ($s)" } ?: "")
-            } + ". Imported as $className $level."
+        val multiclass = classes.filter { it !== main }.mapNotNull { cl ->
+            val n = cl.obj("definition")?.get("name").str ?: return@mapNotNull null
+            val lv = cl["level"].int?.takeIf { it > 0 } ?: return@mapNotNull null
+            ClassLevel(n, lv, cl.obj("subclassDefinition")?.get("name").str.orEmpty())
+        }
+        if (multiclass.isNotEmpty()) {
+            notes += "Multiclass: spell slots and level-ups follow $className's table; check the slots under Edit."
         }
 
         val inventory = d["inventory"].arr.mapNotNull { it as? JsonObject }
@@ -179,6 +181,7 @@ object DdbImport {
             name = d["name"].str?.takeIf { it.isNotBlank() } ?: "Nameless",
             className = className,
             level = level,
+            multiclass = multiclass,
             species = speciesName.orEmpty(),
             background = background.orEmpty(),
             subclass = if (level >= 3) subclass else "",

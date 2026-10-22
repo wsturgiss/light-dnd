@@ -49,7 +49,7 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
         ) {
             T(c.name, Style.Banner, Modifier.padding(top = 0.5f.gridUnitsAsDp()))
             T(
-                listOf("Level ${c.level}", c.species, c.className).filter { it.isNotEmpty() }.joinToString(" ") +
+                listOf("Level ${c.level}", c.species, c.classLabel).filter { it.isNotEmpty() }.joinToString(" ") +
                     "  ·  proficiency ${signed(c.proficiency)}",
                 Style.Small,
                 dim = true,
