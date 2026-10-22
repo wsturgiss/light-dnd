@@ -354,6 +354,26 @@ class RulesTest {
     }
 
     @Test
+    fun lastRollIsThePlayingCharacters() {
+        fun r(by: String?, total: Int) = LoggedRoll("Stealth", "d20", "8", total, by = by)
+        val s = SaveFile(
+            characters = listOf(Character(name = "Wren"), Character(name = "Hagar")),
+            active = 1,
+            log = listOf(r("Wren", 8), r(null, 3)),
+        )
+        // Wren's Stealth 8 doesn't show as Hagar's, and an old roll with no roller isn't anyone's
+        assertNull(s.lastRoll)
+        assertEquals(8, s.copy(active = 0).lastRoll?.total)
+        assertEquals(15, s.copy(log = listOf(r("Hagar", 15)) + s.log).lastRoll?.total)
+        // rolls from before this was kept still load
+        val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        val old = """{"characters":[{"name":"Wren"}],"log":[{"label":"Stealth","expr":"d20","detail":"8","total":8}]}"""
+        val loaded = json.decodeFromString<SaveFile>(old)
+        assertNull(loaded.log.single().by)
+        assertNull(loaded.lastRoll)
+    }
+
+    @Test
     fun oldSavesBecomeACharacterList() {
         val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
         val old = """{"character":{"name":"Wren","level":3},"log":[],"nextItemId":4}"""

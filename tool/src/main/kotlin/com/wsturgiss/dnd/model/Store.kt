@@ -28,6 +28,8 @@ data class LoggedRoll(
     /** Both d20s when rolled with advantage or disadvantage; [natural] is the one kept. */
     val edgeDice: List<Int> = emptyList(),
     val at: Long = System.currentTimeMillis(),
+    /** Who rolled it, by name; null on rolls from before this was kept. */
+    val by: String? = null,
 )
 
 @Serializable
@@ -43,6 +45,9 @@ data class SaveFile(
     @SerialName("character") val single: Character? = null,
 ) {
     val character: Character get() = characters.getOrNull(active) ?: characters.firstOrNull() ?: Character()
+
+    /** The playing character's last roll: the log is the table's, but this is theirs. */
+    val lastRoll: LoggedRoll? get() = character.name.let { name -> log.firstOrNull { it.by == name } }
 
     /** This file with the active character changed. */
     fun withCharacter(change: (Character) -> Character): SaveFile {
@@ -182,7 +187,7 @@ object Store {
     }
 
     fun record(label: String, roll: Roll): LoggedRoll {
-        val entry = LoggedRoll(label, roll.expr.toString(), roll.detail, roll.total, roll.edge, roll.natural, roll.edgeDice)
+        val entry = LoggedRoll(label, roll.expr.toString(), roll.detail, roll.total, roll.edge, roll.natural, roll.edgeDice, by = character.name)
         _state.update { it.copy(log = (listOf(entry) + it.log).take(LOG_LIMIT)) }
         save()
         return entry

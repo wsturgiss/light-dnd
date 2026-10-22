@@ -44,7 +44,7 @@ class HomeScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
     override fun Content() {
         val save by Store.state.collectAsState()
         val c = save.character
-        val last = save.log.firstOrNull()
+        val last = save.lastRoll
 
         Page(
             title = "D&D",
