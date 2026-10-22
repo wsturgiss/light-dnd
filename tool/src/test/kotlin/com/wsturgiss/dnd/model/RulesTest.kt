@@ -434,6 +434,15 @@ class RulesTest {
     }
 
     @Test
+    fun typedHpIsAtLeastOneALevel() {
+        assertEquals(4..999, hpRange(4))
+        assertFalse(validHp(3, level = 4))
+        assertTrue(validHp(4, level = 4))
+        assertTrue("HP of 4 to 999" in Draft(level = 4, manualHp = 3).missing)
+        assertFalse(Draft(level = 4, manualHp = 4).missing.any { "HP" in it })
+    }
+
+    @Test
     fun typedInHpAloneLetsScoresFollowTheClass() {
         val d = Draft(manualHp = 40).copy(className = "Wizard")
         assertEquals(Draft(className = "Wizard").scores, d.scores)

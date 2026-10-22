@@ -344,9 +344,12 @@ val SCORE_RANGE = 1..30
 /** What max HP may be, typed in or edited. */
 val HP_RANGE = 1..999
 
+/** Max HP at [level]: at least 1 a level, the fewest the rules can give. */
+fun hpRange(level: Int): IntRange = maxOf(HP_RANGE.first, level)..HP_RANGE.last
+
 fun validScore(v: Int): Boolean = v in SCORE_RANGE
 
-fun validHp(v: Int): Boolean = v in HP_RANGE
+fun validHp(v: Int, level: Int = 1): Boolean = v in hpRange(level)
 
 /**
  * A character being built. Fields left null follow the suggestion for the class and background,
@@ -453,7 +456,7 @@ data class Draft(
             if (manualScores != null && (manualScores.size < Ability.entries.size || !manualScores.values.all(::validScore))) {
                 add("scores of ${SCORE_RANGE.first} to ${SCORE_RANGE.last}")
             }
-            if (manualHp != null && !validHp(manualHp)) add("HP of ${HP_RANGE.first} to ${HP_RANGE.last}")
+            if (manualHp != null && !validHp(manualHp, level)) hpRange(level).let { add("HP of ${it.first} to ${it.last}") }
         }
 
     /** Scores from a base method, back on the rules: anything typed in goes, HP too. */

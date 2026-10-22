@@ -41,7 +41,7 @@ import com.wsturgiss.dnd.model.gearNames
 import com.wsturgiss.dnd.model.POINT_BUY_BUDGET
 import com.wsturgiss.dnd.model.SPECIES
 import com.wsturgiss.dnd.model.STANDARD_ARRAY
-import com.wsturgiss.dnd.model.HP_RANGE
+import com.wsturgiss.dnd.model.hpRange
 import com.wsturgiss.dnd.model.SCORE_RANGE
 import com.wsturgiss.dnd.model.validHp
 import com.wsturgiss.dnd.model.validScore
@@ -615,7 +615,7 @@ data class ManualStats(val scores: Map<Ability, Int>?, val hp: Int?)
 
 /**
  * Six scores and max HP typed in, for a character already made on paper. Each opens the number
- * pad; scores must be 1 to 30 (with every bonus in), HP 1 to 999. Modifiers follow the scores.
+ * pad; scores must be 1 to 30 (with every bonus in), HP 1 a level to 999. Modifiers follow the scores.
  * Only what you tap is typed in: until then scores and HP stay worked out, and HP follows a
  * typed CON.
  */
@@ -686,12 +686,13 @@ class ManualStatsScreen(
             }
             Section("Hit points")
             TapRow(onClick = {
-                askNumber(NumberRequest("Max HP", "${HP_RANGE.first} to ${HP_RANGE.last}.", hp)) { r ->
-                    if (validHp(r.value)) {
+                val range = hpRange(draft.level)
+                askNumber(NumberRequest("Max HP", "${range.first} to ${range.last}: at least 1 a level.", hp)) { r ->
+                    if (validHp(r.value, draft.level)) {
                         typedHp = r.value
                         error = null
                     } else {
-                        error = HP_ROW to "HP must be ${HP_RANGE.first} to ${HP_RANGE.last}; ${r.value} wasn't kept."
+                        error = HP_ROW to "HP must be ${range.first} to ${range.last} at level ${draft.level}; ${r.value} wasn't kept."
                     }
                 }
             }) {
