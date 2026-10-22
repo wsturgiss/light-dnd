@@ -129,6 +129,7 @@ class DdbPreviewScreen(sealedActivity: SealedLightActivity, private val id: Long
                 }
             }
         }
+        c.hpBreakdown?.let { T("Max HP $it, as D&D Beyond has it.", Style.Small) }
         T("${c.items.size} things in the bag, wearing ${listOfNotNull(c.wearing, "Shield".takeIf { c.shield }).joinToString(" and ").ifEmpty { "no armor" }}.", Style.Small)
         if (c.notes.isNotBlank()) T("Anything the sheet can't hold goes in its notes.", Style.Small, dim = true)
 

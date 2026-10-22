@@ -133,10 +133,21 @@ class RulesSpecTest {
         assertEquals(30, hagar.maxHp)
     }
 
-    @Ignore("NOT IMPLEMENTED: the import never compares D&D Beyond's HP with the fixed calculation")
     @Test
     fun C11_flagsHpThatDiffersFromFixed() {
         assertTrue("36" in hagar.notes, hagar.notes)
+        assertEquals(36, hagar.fixedMaxHp)
+        assertEquals("30 (36 base, -6 adjustment)", hagar.hpBreakdown)
+        assertTrue("Max HP 30 (36 base, -6 adjustment): on D&D Beyond it has a -6 HP modifier." in hagar.notes, hagar.notes)
+        // HP that matches the table isn't flagged
+        val plain = DdbImport.parse(
+            """{"data":{"name":"X","classes":[{"level":4,"definition":{"name":"Fighter"}}],"stats":[{"id":3,"value":14}],"baseHitPoints":28}}""",
+        )
+        assertNull(plain.hpBreakdown)
+        assertFalse("Max HP" in plain.notes, plain.notes)
+        // an override says so
+        val set = DdbImport.parse("""{"data":{"name":"X","classes":[{"level":1,"definition":{"name":"Wizard"}}],"overrideHitPoints":9}}""")
+        assertTrue("Max HP 9 (6 base, +3 adjustment): on D&D Beyond max HP is set by hand." in set.notes, set.notes)
     }
 
     // D. AC

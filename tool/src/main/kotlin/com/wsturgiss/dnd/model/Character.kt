@@ -154,6 +154,10 @@ data class Character(
             }.sum()
         }
 
+    /** Max HP against [fixedMaxHp] when they differ: "30 (36 base, -6 adjustment)". */
+    val hpBreakdown: String?
+        get() = (maxHp - fixedMaxHp).takeIf { it != 0 }?.let { "$maxHp ($fixedMaxHp base, ${signed(it)} adjustment)" }
+
     /** These feats instead: taking Tough adds 2 HP for every level so far, dropping it takes them off. */
     fun withFeats(new: List<Feat>): Character {
         fun tough(fs: List<Feat>) = fs.any { it.name == TOUGH_FEAT }

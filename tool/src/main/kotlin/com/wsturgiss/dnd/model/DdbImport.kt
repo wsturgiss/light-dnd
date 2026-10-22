@@ -79,7 +79,9 @@ object DdbImport {
         val scores = scores(d, mods)
         val conMod = Math.floorDiv((scores[Ability.CON] ?: 10) - 10, 2)
         val perLevel = mods.filter { it.type == "bonus" && it.subType == "hit-points-per-level" }.sumOf { it.value }
-        val maxHp = (d["overrideHitPoints"].int ?: ((d["baseHitPoints"].int ?: 10) + conMod * level + (d["bonusHitPoints"].int ?: 0) + perLevel * level))
+        val override = d["overrideHitPoints"].int
+        val hpBonus = d["bonusHitPoints"].int ?: 0
+        val maxHp = (override ?: ((d["baseHitPoints"].int ?: 10) + conMod * level + hpBonus + perLevel * level))
             .coerceIn(HP_RANGE)
         val hp = (maxHp - (d["removedHitPoints"].int ?: 0)).coerceIn(0, maxHp)
 
@@ -177,7 +179,7 @@ object DdbImport {
             b.obj("definition")?.get("name").str ?: b.obj("customBackground")?.get("name").str
         }
 
-        return Character(
+        val c = Character(
             name = d["name"].str?.takeIf { it.isNotBlank() } ?: "Nameless",
             className = className,
             level = level,
@@ -202,8 +204,18 @@ object DdbImport {
             items = items,
             coins = coins,
             inspiration = d["inspiration"].bool == true,
-            notes = notes.joinToString("\n\n"),
         ).withClassSlots(classInfo(className), level)
+
+        // D&D Beyond's HP is kept, rolled or adjusted; say how it differs from the fixed table
+        val hpNote = c.hpBreakdown?.let { breakdown ->
+            val why = listOfNotNull(
+                "max HP is set by hand".takeIf { override != null },
+                "hit points are rolled".takeIf { override == null && d.obj("preferences")?.get("hitPointType").int == 2 },
+                "it has a ${signed(hpBonus)} HP modifier".takeIf { override == null && hpBonus != 0 },
+            ).ifEmpty { listOf("it works it out differently") }
+            "Max HP $breakdown: on D&D Beyond ${why.joinToString(" and ")}. The sheet keeps ${c.maxHp}."
+        }
+        return c.copy(notes = (listOfNotNull(hpNote) + notes).joinToString("\n\n"))
     }
 
     /**
