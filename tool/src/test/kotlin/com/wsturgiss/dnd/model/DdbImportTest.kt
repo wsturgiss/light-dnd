@@ -65,8 +65,9 @@ class DdbImportTest {
     @Test
     fun hagarsBagAndCoins() {
         val c = hagar
-        assertEquals(setOf("Greatsword", "Plate Armor"), c.items.filter { it.equipped }.map { it.name }.toSet())
-        assertEquals(1, c.items.count { it.equipped && it.name == "Greatsword" })
+        // the equipped Greatsword is renamed on D&D Beyond; the spare keeps its name
+        assertEquals(setOf(BLADE, "Plate Armor"), c.items.filter { it.equipped }.map { it.name }.toSet())
+        assertEquals(1, c.items.count { !it.equipped && it.name == "Greatsword" })
         // the backpack's contents and the custom items too
         assertEquals(10, c.items.single { it.name == "Torch" }.qty)
         assertEquals(20, c.items.single { it.name == "Caltrops" }.qty)
@@ -74,6 +75,49 @@ class DdbImportTest {
         assertEquals(19, c.items.size)
         assertEquals(c.items.size, c.items.map { it.id }.toSet().size)
         assertEquals(mapOf(Coin.GP to 7, Coin.EP to 1), c.coins)
+    }
+
+    @Test
+    fun aCustomizedItemKeepsItsBaseWeaponNameAndNotes() {
+        // characterValues typeId 8 (name) and 9 (notes), keyed to inventory id 790053353
+        val blade = hagar.items.single { it.name == BLADE }
+        assertEquals("Greatsword", blade.weapon)
+        assertTrue(blade.equipped)
+        assertTrue(blade.notes.startsWith("2d8 Damage - Five Headed Destroyer’s Blessing: When the wielder rolls a natural 1"), blade.notes)
+        assertTrue("Parry: Up to three times per battle" in blade.notes, blade.notes)
+        assertNull(blade.magicBonus)
+        assertEquals("", blade.extraDamage)
+        // a plain one goes by its name and has no notes: its description is the SRD's, in Look up
+        val spare = hagar.items.single { it.name == "Greatsword" }
+        assertNull(spare.weapon)
+        assertEquals("", spare.notes)
+        // a magic item's description comes in as plain text
+        assertEquals("You have a +1 bonus to AC while wearing this armor.", hagar.items.single { it.name == "Chain Mail" }.notes)
+        // custom items' notes stay with them
+        assertEquals("Lots of character", hagar.items.single { it.name == "Weathered trenchcoat" }.notes)
+        assertEquals("in #maps", hagar.items.single { it.name == "Darkon Map" }.notes)
+    }
+
+    @Test
+    fun theBaseWeaponIsDefinitionTypeNotTheName() {
+        // a magic weapon whose name isn't a weapon's: definition.type says which, and its +N comes from grantedModifiers
+        val c = DdbImport.parse(
+            """{"data":{"name":"X","inventory":[{"id":5,"entityTypeId":1439493548,"equipped":true,"definition":{
+               "name":"Dragon's Wrath","type":"Longsword","filterType":"Weapon","magic":true,
+               "description":"<p>A blade of <strong>fire</strong>.</p><p>Roll &amp; burn.</p>",
+               "grantedModifiers":[{"type":"bonus","subType":"magic","value":2}]}},
+               {"id":6,"entityTypeId":1439493548,"definition":{"name":"Shortsword, +1","filterType":"Weapon","magic":true}}],
+               "characterValues":[{"typeId":8,"value":"Ember","valueId":"5","valueTypeId":"1439493548"},
+                                  {"typeId":9,"value":"Lights up.","valueId":"6","valueTypeId":"1439493548"}]}}""",
+        )
+        val ember = c.items.single { it.name == "Ember" }
+        assertEquals("Longsword", ember.weapon)
+        assertEquals(2, ember.magicBonus)
+        assertEquals("A blade of fire.\nRoll & burn.", ember.notes)
+        // no definition.type: the name less its +1
+        val short = c.items.single { it.name == "Shortsword, +1" }
+        assertEquals("Shortsword", short.weapon)
+        assertEquals("Lights up.", short.notes)
     }
 
     @Test
@@ -153,3 +197,6 @@ class DdbImportTest {
         assertFalse(c.items.single().equipped)
     }
 }
+
+/** Will's Greatsword, as renamed on D&D Beyond. */
+const val BLADE = "Blade of the Disciple of the Five Headed’s Destroyer"

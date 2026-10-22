@@ -182,6 +182,17 @@ object Store {
         save()
     }
 
+    /** A new item of the player's own, named [name] and built on nothing yet; its id, to open it. */
+    fun addCustomItem(name: String): Long {
+        var id = 0L
+        _state.update { s ->
+            id = s.nextItemId
+            s.withCharacter { it.copy(items = it.items + Item(id, name)) }.copy(nextItemId = id + 1)
+        }
+        save()
+        return id
+    }
+
     fun addItem(name: String, weight: Double = 0.0, srdKind: String? = null) {
         _state.update { s ->
             val existing = s.character.items.find { it.name.equals(name, ignoreCase = true) }

@@ -74,12 +74,21 @@ data class Item(
     val stealthDisadvantage: Boolean? = null,
     /** In hand or on, as D&D Beyond had it. Armor and shields go by [Character.wearing] and [Character.shield]. */
     val equipped: Boolean = false,
-    /** The SRD weapon it is, for a magic weapon not named for one ("Weapon +1"); null goes by the name. */
+    /**
+     * The SRD weapon it's built on, for one not named for it ("Weapon +1", a Greatsword renamed
+     * "Blade of ..."): its dice, damage type and properties. Null goes by the name.
+     */
     val weapon: String? = null,
     /** +N to attack and damage rolls; null reads it from the name ("Longsword, +1"). */
     val magicBonus: Int? = null,
     /** Damage dice on top of the weapon's on a hit ("2d6"), doubled on a critical hit like the rest. */
     val extraDamage: String = "",
+    /** Free text: what the item does that the sheet doesn't work out. Shown on it and by its attack. */
+    val notes: String = "",
+    /** AC while it's worn or equipped (a Ring of Protection's +1). */
+    val acBonus: Int = 0,
+    /** Added to scores while it's worn or equipped (+2 STR). */
+    val abilityBonus: Map<Ability, Int> = emptyMap(),
 )
 
 /** A roll of a d20 the sheet makes, so it can say what gives it advantage or disadvantage. */
@@ -201,7 +210,11 @@ data class Character(
         return copy(feats = new, maxHp = max, hp = (hp + change).coerceIn(0, max))
     }
 
-    fun score(a: Ability): Int = scores[a] ?: 10
+    /** The score as recorded, before anything worn or equipped adds to it. */
+    fun baseScore(a: Ability): Int = scores[a] ?: 10
+
+    /** The score now: [baseScore] plus the bonuses of items in use ([inUse]), at most 30. */
+    fun score(a: Ability): Int = (baseScore(a) + items.filter(::inUse).sumOf { it.abilityBonus[a] ?: 0 }).coerceIn(SCORE_RANGE)
     fun mod(a: Ability): Int = Math.floorDiv(score(a) - 10, 2)
     fun save(a: Ability): Int = mod(a) + if (a in saves) proficiency else 0
     fun training(s: Skill): Training = skills[s] ?: Training.None
@@ -250,15 +263,18 @@ data class Character(
             else -> 20
         }
 
+    /** The item counts now: armor and shields while worn, anything else while equipped and carried. */
+    fun inUse(item: Item): Boolean = if (wearable(item)) isWorn(item) else item.equipped && item.qty > 0
+
     /**
      * Worn armor, DEX, shield and Unarmored Defense, worked out; the Defense style's +1 in armor;
-     * plus [acBonus]. A shield's +2 needs training in 2024, not in 2014.
+     * items' AC while in use; plus [acBonus]. A shield's +2 needs training in 2024, not in 2014.
      */
     val ac: Int
         get() = armorClass(
-            ARMOR.find { it.name == wearing } ?: ARMOR.first(), shield, scores, classInfo(className),
+            ARMOR.find { it.name == wearing } ?: ARMOR.first(), shield, Ability.entries.associateWith(::score), classInfo(className),
             shieldAc = rules == Edition.E2014 || shieldTraining,
-        ) + (if (wearing != null && feats.any { it.name == "Defense" }) 1 else 0) + acBonus
+        ) + (if (wearing != null && feats.any { it.name == "Defense" }) 1 else 0) + items.filter(::inUse).sumOf { it.acBonus } + acBonus
 
     /** The bag item is armor or a shield, so it can be worn. */
     fun wearable(item: Item): Boolean = item.name == "Shield" || ARMOR.any { it.name == item.name && it.weight != ArmorWeight.None }

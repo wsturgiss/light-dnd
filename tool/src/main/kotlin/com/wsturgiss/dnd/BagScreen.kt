@@ -16,6 +16,7 @@ import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
+import com.wsturgiss.dnd.model.Ability
 import com.wsturgiss.dnd.model.Character
 import com.wsturgiss.dnd.model.Coin
 import com.wsturgiss.dnd.model.DiceExpr
@@ -83,6 +84,16 @@ class BagScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
                     T("x${item.qty}", Style.Mono, dim = item.qty == 1)
                 }
             }
+            // an item of your own, built on an SRD weapon if it is one, named and noted as you like
+            TapRow(onClick = {
+                askText("Name your item") { n ->
+                    val id = Store.addCustomItem(n)
+                    navigateTo(screenFactory = { ItemScreen(it, id) })
+                }
+            }, Modifier.padding(top = 0.6f.gridUnitsAsDp())) {
+                T("Add your own item", Style.Body, Modifier.weight(1f))
+                T("›", Style.Mono, dim = true)
+            }
         }
     }
 
@@ -109,19 +120,21 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
 
     /**
      * A weapon's attack, and what makes it magic: a bonus to attack and damage, extra damage dice.
-     * A magic weapon from the SRD ("Weapon +1", Flame Tongue) is any weapon, so it asks which.
+     * A magic weapon from the SRD ("Weapon +1", Flame Tongue), or an item of your own, is built on
+     * any weapon ([pickBase]), so it asks which: that weapon brings the dice and properties.
      */
     @Composable
-    private fun WeaponSection(c: Character, item: Item, magicWeapon: Boolean) {
+    private fun WeaponSection(c: Character, item: Item, pickBase: Boolean) {
         val w = Srd.find(lightContext, Kind.Equipment, weaponName(item))?.let(Weapon::of)
-        if (w == null && !magicWeapon) return
+        if (w == null && !pickBase) return
         Section("Attack")
-        if (magicWeapon || item.weapon != null) {
-            KeyValueRow("Weapon", w?.name ?: "choose", valueStyle = Style.Body, onClick = {
+        if (pickBase || item.weapon != null) {
+            KeyValueRow("Based on", w?.name ?: "not a weapon", valueStyle = Style.Body, onClick = {
                 val all = Srd.load(lightContext, Kind.Equipment).mapNotNull(Weapon::of)
+                val options = all.map { o -> Option(o.name, "${o.damage} ${o.damageType}") } + Option("Not a weapon")
                 navigateTo(
-                    screenFactory = { PickScreen(it, "Which weapon", all.map { o -> Option(o.name, "${o.damage} ${o.damageType}") }, all.indexOfFirst { o -> o.name == w?.name }.takeIf { i -> i >= 0 }) },
-                    resultCallback = { i -> change { it.copy(weapon = all[i].name) } },
+                    screenFactory = { PickScreen(it, "Built on", options, all.indexOfFirst { o -> o.name == w?.name }.takeIf { i -> i >= 0 }) },
+                    resultCallback = { i -> change { it.copy(weapon = all.getOrNull(i)?.name) } },
                 )
             })
         }
@@ -141,6 +154,50 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
         T("A critical hit doubles every damage die, extra dice too; the bonuses are added once.", Style.Small, dim = true)
     }
 
+    /** What the item adds while worn or equipped: AC, a score. */
+    @Composable
+    private fun StatsSection(c: Character, item: Item) {
+        Section("While ${if (c.wearable(item)) "worn" else "equipped"}")
+        if (!c.wearable(item)) {
+            TapRow(onClick = { change { it.copy(equipped = !it.equipped) } }) {
+                T(if (item.equipped) "[x] " else "[ ] ", Style.Mono, dim = !item.equipped)
+                T("Equipped (attuned, if it needs it)", Style.Body, Modifier.weight(1f))
+            }
+        }
+        KeyValueRow("AC", signed(item.acBonus), onClick = {
+            askNumber(NumberRequest("AC bonus", "Added to AC while it's ${if (c.wearable(item)) "worn" else "equipped"}.", item.acBonus, allowNegative = true)) { r ->
+                change { it.copy(acBonus = r.value.coerceIn(-10, 10)) }
+            }
+        })
+        val bonus = item.abilityBonus.filterValues { it != 0 }
+        KeyValueRow("Scores", bonus.entries.joinToString(" ") { "${signed(it.value)} ${it.key.short}" }.ifEmpty { "none" }, onClick = {
+            val options = Ability.entries.map { a -> Option(a.long, item.abilityBonus[a]?.let(::signed) ?: "") }
+            navigateTo(
+                screenFactory = { PickScreen(it, "Which score", options, null) },
+                resultCallback = { i ->
+                    val a = Ability.entries[i]
+                    askNumber(NumberRequest("${a.short} bonus", "Added to ${a.long} while it's in use; 0 for none.", item.abilityBonus[a] ?: 0, allowNegative = true)) { r ->
+                        change { it.copy(abilityBonus = (it.abilityBonus + (a to r.value.coerceIn(-10, 10))).filterValues { v -> v != 0 }) }
+                    }
+                },
+            )
+        })
+    }
+
+    /** Free text for what the item does that the sheet doesn't work out; it shows by the attack too. */
+    @Composable
+    private fun NotesSection(item: Item) {
+        Section("Notes")
+        if (item.notes.isNotBlank()) T(item.notes, Style.Body)
+        TapRow(onClick = { askText("Notes", item.notes) { t -> change { it.copy(notes = t) } } }) {
+            T(if (item.notes.isBlank()) "Add notes" else "Edit notes", Style.Body, Modifier.weight(1f))
+        }
+        if (item.notes.isNotBlank()) {
+            TapRow(onClick = { change { it.copy(notes = "") } }) { T("Clear notes", Style.Body) }
+        }
+        T("For the table to read: the sheet doesn't work these out.", Style.Small, dim = true)
+    }
+
     @Composable
     override fun Content() {
         val save by Store.state.collectAsState()
@@ -151,6 +208,8 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
         }
         val kind = Kind.ofFile(item.srdKind)
         val entry = kind?.let { Srd.find(lightContext, it, item.name) }
+        // an item of your own built on an SRD weapon: that weapon's entry, under its name
+        val base = item.weapon?.takeIf { entry == null }?.let { Srd.find(lightContext, Kind.Equipment, it) }
 
         fun setQty(q: Int) = Store.edit { c -> c.copy(items = c.items.map { if (it.id == id) it.copy(qty = q.coerceAtLeast(0)) else it }) }
 
@@ -160,8 +219,12 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.PENCIL, contentDescription = "Rename", onClick = {
                 askText("Rename", item.name) { n ->
-                    // renamed, it's no longer armor the sheet knows: take it off rather than keep a stale AC
-                    Store.edit { c -> (if (c.isWorn(item)) c.toggleWorn(item) else c).copy(items = c.items.map { if (it.id == id) it.copy(name = n) else it }) }
+                    // a weapon keeps the weapon it was as its base; renamed, it's no longer armor
+                    // the sheet knows, so it comes off rather than keep a stale AC
+                    val weapon = item.weapon ?: Srd.find(lightContext, Kind.Equipment, weaponName(item))?.let(Weapon::of)?.name
+                    Store.edit { c ->
+                        (if (c.isWorn(item)) c.toggleWorn(item) else c).copy(items = c.items.map { if (it.id == id) it.copy(name = n, weapon = weapon) else it })
+                    }
                 }
             }),
         ) {
@@ -198,12 +261,19 @@ class ItemScreen(sealedActivity: SealedLightActivity, private val id: Long) : Dn
                 T("Disadvantage on Stealth", Style.Body, Modifier.weight(1f))
             }
             if (dis) T(if (c.wearable(item)) "While worn." else "While carried.", Style.Small, dim = true)
-            WeaponSection(c, item, entry?.meta?.startsWith("Weapons") == true)
+            WeaponSection(c, item, entry?.meta?.startsWith("Weapons") == true || entry == null && !c.wearable(item))
+            NotesSection(item)
+            StatsSection(c, item)
             if (entry != null) {
                 Section(kind.one)
                 T(entry.meta, Style.Small, dim = true)
                 Spacer(Modifier.height(0.4f.gridUnitsAsDp()))
                 Markup(entry.body, onRoll = { roll(it, item.name) })
+            } else if (base != null) {
+                Section("Based on ${base.name}")
+                T(base.meta, Style.Small, dim = true)
+                Spacer(Modifier.height(0.4f.gridUnitsAsDp()))
+                Markup(base.body, onRoll = { roll(it, item.name) })
             }
             TapRow(onClick = {
                 Store.edit { c -> (if (c.isWorn(item)) c.toggleWorn(item) else c).copy(items = c.items.filterNot { it.id == id }) }

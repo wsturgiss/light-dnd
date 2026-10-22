@@ -21,6 +21,8 @@ data class Attack(
     val damageType: String = "",
     /** The lowest natural d20 that's a critical hit ([Character.critOn] for a weapon). */
     val critOn: Int = 20,
+    /** What the item does beyond the numbers, to read by the attack; never worked out. */
+    val notes: String = "",
 ) {
     val expr: DiceExpr get() = DiceExpr.parse("d20${signed(toHit)}")!!
 }
@@ -92,7 +94,7 @@ fun Character.proficientWith(w: Weapon): Boolean {
  * Attacking with [item], which is [w]: STR, or DEX for a ranged weapon, the better of the two with
  * Finesse; the proficiency bonus if trained; the item's magic bonus to hit and to damage; and its
  * extra damage dice (a Flame Tongue's 2d6), which a critical hit doubles like the weapon's own;
- * and the Champion's crit range.
+ * the Champion's crit range; and the item's notes.
  */
 fun Character.weaponAttack(item: Item, w: Weapon): Attack {
     val ability = when {
@@ -104,7 +106,7 @@ fun Character.weaponAttack(item: Item, w: Weapon): Attack {
     val toHit = mod(ability) + (if (proficientWith(w)) proficiency else 0) + magic
     val extra = DiceExpr.parse(item.extraDamage)?.terms.orEmpty()
     val terms = DiceExpr.parse(w.damage)!!.terms + extra + DiceExpr.Flat(mod(ability)) + DiceExpr.Flat(magic)
-    return Attack(item.name, toHit, DiceExpr(DiceExpr.merge(terms)), ability, w.damageType, critOn)
+    return Attack(item.name, toHit, DiceExpr(DiceExpr.merge(terms)), ability, w.damageType, critOn, item.notes)
 }
 
 private val SPELL_DAMAGE = Regex("""(\d+)d(\d+) (?:(\w+) )?damage""")

@@ -155,6 +155,63 @@ class AttacksTest {
     }
 
     @Test
+    fun hagarsBladeIsACustomizedGreatsword() {
+        // Hagar, Champion 4, STR 20, proficient: the Blade is a Greatsword, 2d6+5 slashing, +7 to hit
+        val hagar = DdbImport.parse(java.io.File("src/test/resources/ddb/hagar-141442128.json").readText())
+        val blade = hagar.items.single { it.name == BLADE }
+        val a = hagar.weaponAttack(blade, weapon(weaponName(blade)))
+        assertEquals(BLADE, a.name)
+        assertEquals(5 + 2, a.toHit)
+        assertEquals("2d6+5", a.damage.toString())
+        assertEquals("slashing", a.damageType)
+        // Improved Critical: 19 or 20, and the dice double: 4d6+5
+        assertEquals(19, a.critOn)
+        assertEquals("4d6+5", a.damage!!.critical().toString())
+        val out = rollAttack(a.expr, a.damage, Edge.None, Faces(19, 1, 2, 3, 4), critOn = a.critOn)
+        assertEquals(AttackResult.CriticalHit, out.result)
+        assertEquals("4d6+5", out.damage!!.expr.toString())
+        assertEquals(1 + 2 + 3 + 4 + 5, out.damage!!.total)
+        // the notes come along to the attack, never worked out: the 2d8 in them isn't added
+        assertTrue(a.notes.startsWith("2d8 Damage - Five Headed Destroyer’s Blessing"), a.notes)
+        // the base brings the properties
+        assertEquals(listOf("Heavy", "Two-Handed"), weapon(weaponName(blade)).properties.take(2))
+    }
+
+    @Test
+    fun aCustomItemOverridesItsBase() {
+        val c = fighter(Ability.STR to 16, Ability.DEX to 14)
+        val blade = Item(1, "Sunder", weapon = "Greatsword", magicBonus = 1, extraDamage = "1d6", notes = "Glows near orcs.",
+            acBonus = 1, abilityBonus = mapOf(Ability.STR to 2))
+        // not equipped: the name, bonus, dice and notes count, the stat changes don't
+        val idle = c.copy(items = listOf(blade))
+        val a = idle.weaponAttack(blade, weapon("Greatsword"))
+        assertEquals("Sunder", a.name)
+        assertEquals(3 + 2 + 1, a.toHit)
+        assertEquals("3d6+4", a.damage.toString())
+        assertEquals("6d6+4", a.damage!!.critical().toString())
+        assertEquals("Glows near orcs.", a.notes)
+        assertEquals(12, idle.ac)
+        // equipped: +1 AC, and STR 18 for everything that reads it
+        val held = c.copy(items = listOf(blade.copy(equipped = true)))
+        assertEquals(13, held.ac)
+        assertEquals(18, held.score(Ability.STR))
+        assertEquals(16, held.baseScore(Ability.STR))
+        assertEquals(4 + 2 + 1, held.weaponAttack(held.items.single(), weapon("Greatsword")).toHit)
+        // ...but a level's increase goes on the score as recorded, not on the item's
+        assertEquals(17, held.levelUp(6, mapOf(Ability.STR to 1), emptySet()).baseScore(Ability.STR))
+        // carried but none left, or armor not worn: nothing
+        assertEquals(12, c.copy(items = listOf(blade.copy(equipped = true, qty = 0))).ac)
+        val mail = Item(2, "Chain Mail", acBonus = 1)
+        assertEquals(12, c.copy(items = listOf(mail)).ac)
+        assertEquals(16 + 1, c.copy(items = listOf(mail), wearing = "Chain Mail").ac)
+        // old saves load without the new fields
+        val old = json.decodeFromString<Item>("""{"id":1,"name":"Longsword","qty":1}""")
+        assertEquals("", old.notes)
+        assertEquals(0, old.acBonus)
+        assertTrue(old.abilityBonus.isEmpty())
+    }
+
+    @Test
     fun spellAttacksUseTheCastingAbilityAndScaleCantrips() {
         val wiz = Character(className = "Wizard", level = 1, scores = Ability.entries.associateWith { 10 } + (Ability.INT to 16))
         val bolt = wiz.spellAttack(spell("Fire Bolt"))!!

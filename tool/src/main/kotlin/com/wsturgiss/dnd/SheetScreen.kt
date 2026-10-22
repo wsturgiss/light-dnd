@@ -272,8 +272,9 @@ fun AttackRow(a: Attack, onClick: () -> Unit) {
         T(signed(a.toHit) + "  ", Style.Mono)
         T(listOfNotNull(a.damage?.toString(), a.damageType.ifEmpty { null }).joinToString(" "), Style.MonoSmall, dim = true, maxLines = 1)
     }
-    // a crit range that isn't just 20
-    if (a.critOn < 20) T("crit ${critRange(a.critOn)}", Style.Small, dim = true)
+    // what the sheet doesn't work out, to read before rolling; and a crit range that isn't just 20
+    val extra = listOfNotNull("crit ${critRange(a.critOn)}".takeIf { a.critOn < 20 }, a.notes.trim().ifEmpty { null })
+    if (extra.isNotEmpty()) T(extra.joinToString("  ·  "), Style.Small, dim = true, maxLines = 4)
 }
 
 /** "20", or "19-20" for a Champion. */

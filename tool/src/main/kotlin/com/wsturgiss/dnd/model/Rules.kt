@@ -578,7 +578,7 @@ fun Character.levelPlan(): LevelPlan? {
 fun Character.levelUp(hitRoll: Int, raise: Map<Ability, Int>, expertise: Set<Skill>, cap: Int = 20): Character {
     val cls = classInfo(className)
     val to = (level + 1).coerceAtMost(20)
-    val newScores = scores + raise.mapValues { (a, n) -> (score(a) + n).coerceAtMost(maxOf(cap, score(a))) }
+    val newScores = scores + raise.mapValues { (a, n) -> (baseScore(a) + n).coerceAtMost(maxOf(cap, baseScore(a))) }
     val raised = copy(level = to, scores = newScores)
     val conGain = raised.mod(Ability.CON) - mod(Ability.CON)
     val hpGain = maxOf(1, hitRoll + raised.mod(Ability.CON)) + hpPerLevelBonus + conGain * level

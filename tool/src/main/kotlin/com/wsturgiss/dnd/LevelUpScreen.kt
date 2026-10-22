@@ -211,7 +211,7 @@ class LevelUpScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seale
                 val spent = raise.values.sum()
                 T("Points left: ${budget - spent}", Style.Mono, modifier = Modifier.padding(vertical = 0.3f.gridUnitsAsDp()))
                 Ability.entries.forEach { a ->
-                    val now = c.score(a)
+                    val now = c.baseScore(a)
                     val r = raise[a] ?: 0
                     TapRow(onClick = {
                         // each tap adds one, up to the budget and the cap; past either it goes back to none

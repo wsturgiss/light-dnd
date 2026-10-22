@@ -112,6 +112,17 @@ object DdbImport {
             Feat(name, if ("Fighting Style" in tags) "Fighting Style" else "")
         }.distinctBy { it.name }
 
+        // what the player changed on an item: characterValues keyed to it by valueId (the inventory
+        // entry's id) and valueTypeId (its entityTypeId); typeId 8 is a custom name, 9 its notes
+        val custom = d["characterValues"].arr.mapNotNull { it as? JsonObject }
+            .groupBy { (it["valueId"].str ?: it["valueId"].long?.toString()) to (it["valueTypeId"].str ?: it["valueTypeId"].long?.toString()) }
+        fun customValue(inv: JsonObject, typeId: Int): String? {
+            val id = inv["id"].long?.toString() ?: return null
+            val type = inv["entityTypeId"].long?.toString()
+            val values = custom[id to type] ?: custom.entries.filter { it.key.first == id }.flatMap { it.value }
+            return values.firstOrNull { it["typeId"].int == typeId }?.get("value").str?.takeIf { it.isNotBlank() }
+        }
+
         // the bag: everything, containers' contents too; armor named as the sheet knows it, so it can be worn
         val wornArmor = mutableListOf<String>()
         var shield = false
@@ -119,16 +130,30 @@ object DdbImport {
         val items = mutableListOf<Item>()
         inventory.forEach { inv ->
             val def = inv.obj("definition") ?: return@forEach
-            val ddbName = def["name"].str?.takeIf { it.isNotBlank() } ?: return@forEach
+            val baseName = def["name"].str?.takeIf { it.isNotBlank() } ?: return@forEach
+            val customName = customValue(inv, CUSTOM_NAME)
+            val ddbName = customName ?: baseName
             val equipped = inv["equipped"].bool == true
             val armorType = def["armorTypeId"].int
-            val armor = if (armorType != null && armorType in 1..3) armorFor(def["baseArmorName"].str ?: ddbName) else null
+            val armor = if (armorType != null && armorType in 1..3) armorFor(def["baseArmorName"].str ?: baseName) else null
             val isShield = armorType == 4
             val name = when {
                 armor != null -> armor.name
                 isShield -> "Shield"
                 else -> ddbName
             }
+            // a weapon is built on the one in definition.type ("Greatsword"), whatever it's called
+            val isWeapon = def["filterType"].str == "Weapon" || def["damage"].obj != null && def["attackType"].int != null
+            val weapon = if (isWeapon) def["type"].str?.takeIf { it.isNotBlank() } ?: weaponName(Item(0, baseName)) else null
+            val magic = def["grantedModifiers"].arr.mapNotNull { it as? JsonObject }
+                .filter { it["type"].str == "bonus" && it["subType"].str == "magic" }.sumOf { it["value"].int ?: it["fixedValue"].int ?: 0 }
+            // the player's notes; a magic or homebrew item's description too (an SRD item's is in Look up)
+            val description = def["description"].str?.takeIf { def["magic"].bool == true || def["isHomebrew"].bool == true }?.let(::plainText)
+            val itemNotes = listOfNotNull(
+                customValue(inv, CUSTOM_NOTES)?.trim(),
+                description?.takeIf { it.isNotBlank() },
+                customName?.takeIf { name != it }?.let { "Called $it on D&D Beyond." },
+            ).joinToString("\n\n")
             val bonus = def["grantedModifiers"].arr.mapNotNull { it as? JsonObject }
                 .filter { it["type"].str == "bonus" && it["subType"].str == "armor-class" }.sumOf { it["value"].int ?: it["fixedValue"].int ?: 0 }
             if (name != ddbName) {
@@ -150,12 +175,15 @@ object DdbImport {
                 srdKind = if (def["isHomebrew"].bool == true) null else if (def["magic"].bool == true) "magic-items" else "equipment",
                 stealthDisadvantage = stealth,
                 equipped = equipped,
+                weapon = weapon?.takeIf { it != name },
+                magicBonus = magic.takeIf { it != 0 },
+                notes = itemNotes,
             )
         }
         d["customItems"].arr.mapNotNull { it as? JsonObject }.forEach { ci ->
             val name = ci["name"].str?.takeIf { it.isNotBlank() } ?: return@forEach
-            items += Item(-1L - items.size, name, (ci["quantity"].int ?: 1).coerceAtLeast(0), ci["weight"].dbl ?: 0.0)
-            ci["notes"].str?.takeIf { it.isNotBlank() }?.let { notes += "$name: $it" }
+            val itemNotes = listOfNotNull(ci["notes"].str, ci["description"].str?.let(::plainText)).filter { it.isNotBlank() }.joinToString("\n\n")
+            items += Item(-1L - items.size, name, (ci["quantity"].int ?: 1).coerceAtLeast(0), ci["weight"].dbl ?: 0.0, notes = itemNotes)
         }
         // AC from equipped items: magic armor, rings; the sheet works out the armor itself
         acBonus += mods.filter { it.source == "item" && it.type == "bonus" && it.subType == "armor-class" }.sumOf { it.value }
@@ -270,6 +298,18 @@ object DdbImport {
     }
 
     private fun slug(label: String) = label.lowercase().replace(' ', '-')
+
+    /** characterValues typeIds, as the saved Hagar response has them on his renamed Greatsword. */
+    private const val CUSTOM_NAME = 8
+    private const val CUSTOM_NOTES = 9
+
+    /** D&D Beyond's HTML description as plain text: paragraphs kept, tags and entities gone. */
+    fun plainText(html: String): String = html
+        .replace(Regex("""(?i)<br\s*/?>|</p>|</div>|</li>|<hr\s*/?>"""), "\n")
+        .replace(Regex("<[^>]+>"), "")
+        .replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'")
+        .replace(Regex("""\[/?\w+]"""), "")
+        .lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
 
     /** "otherNotes" → "Other notes". */
     private fun label(key: String) =

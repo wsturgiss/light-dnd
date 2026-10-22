@@ -74,7 +74,7 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
 
             Section("Scores")
             Ability.entries.forEach { a ->
-                NumberRow(a.long, c.score(a), SCORE_RANGE) { v -> Store.edit { it.copy(scores = it.scores + (a to v)) } }
+                NumberRow(a.long, c.baseScore(a), SCORE_RANGE) { v -> Store.edit { it.copy(scores = it.scores + (a to v)) } }
             }
 
             Section("Combat")
