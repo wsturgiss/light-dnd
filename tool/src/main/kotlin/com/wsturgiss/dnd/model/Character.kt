@@ -178,7 +178,7 @@ data class Character(
 
     /** Extra hit points every level: Dwarven Toughness, the Tough feat. */
     val hpPerLevelBonus: Int
-        get() = (speciesInfo(species)?.hpPerLevel ?: 0) + if (feats.any { it.name == TOUGH_FEAT }) TOUGH_HP_PER_LEVEL else 0
+        get() = speciesHpPerLevel(species, rules) + if (feats.any { it.name == TOUGH_FEAT }) TOUGH_HP_PER_LEVEL else 0
 
     /**
      * Max HP by the fixed table: the first class's hit die in full at 1st level, then each level's
@@ -208,6 +208,36 @@ data class Character(
         }
         val max = (maxHp + change).coerceAtLeast(1)
         return copy(feats = new, maxHp = max, hp = (hp + change).coerceIn(0, max))
+    }
+
+    /**
+     * Another species: what comes of it follows, as [withFeats] does for Tough. Dwarven
+     * Toughness's HP for every level comes or goes, walking speed becomes the new species', and
+     * the old species' sub-choice is dropped.
+     */
+    fun withSpecies(name: String): Character {
+        if (name == species) return this
+        val change = (speciesHpPerLevel(name, rules) - speciesHpPerLevel(species, rules)) * level
+        val max = (maxHp + change).coerceAtLeast(1)
+        return copy(
+            species = name,
+            lineage = "",
+            maxHp = max,
+            hp = (hp + change).coerceIn(0, max),
+            baseSpeed = speciesOf(name)?.speedIn(rules) ?: baseSpeed,
+        )
+    }
+
+    /**
+     * The other book's rules, and what the species gets under them: a 2014 dwarf walks 25, a 2024
+     * one 30; a 2014 mountain dwarf has no Dwarven Toughness. Speed set by hand stays.
+     */
+    fun withRules(edition: Edition): Character {
+        val change = (speciesHpPerLevel(species, edition) - speciesHpPerLevel(species, rules)) * level
+        val max = (maxHp + change).coerceAtLeast(1)
+        val sp = speciesOf(species)
+        val speed = if (sp != null && baseSpeed == sp.speedIn(rules)) sp.speedIn(edition) else baseSpeed
+        return copy(rules = edition, maxHp = max, hp = (hp + change).coerceIn(0, max), baseSpeed = speed)
     }
 
     /** The score as recorded, before anything worn or equipped adds to it. */

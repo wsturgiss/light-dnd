@@ -489,4 +489,68 @@ class RulesTest {
         assertEquals(30 + 6 + 5, up.maxHp)
         assertEquals(4, up.level)
     }
+
+    @Test
+    fun changingSpeciesInEditRecalculatesWhatComesOfIt() {
+        // a 4th-level human fighter, CON 10: 10 + 3 × 6
+        val human = Draft(className = "Fighter", species = "Human", level = 4, manualScores = Ability.entries.associateWith { 10 }).build()
+        assertEquals(28, human.maxHp)
+        assertEquals(30, human.baseSpeed)
+
+        // 2014: Dwarven Toughness's +1 for all four levels, and a dwarf walks 25
+        val dwarf = human.damage(5).withSpecies("Dwarf")
+        assertEquals(28 + 4, dwarf.maxHp)
+        assertEquals(23 + 4, dwarf.hp)
+        assertEquals(25, dwarf.baseSpeed)
+        assertEquals(dwarf.fixedMaxHp, dwarf.maxHp)
+        // and back: the HP go again, speed is a human's
+        val back = dwarf.withSpecies("Human")
+        assertEquals(28, back.maxHp)
+        assertEquals(30, back.baseSpeed)
+        // Halflings and gnomes walk 25 in 2014 too; a Goliath 30 (35 in 2024)
+        assertEquals(25, human.withSpecies("Halfling").baseSpeed)
+        assertEquals(25, human.withSpecies("Gnome").baseSpeed)
+        assertEquals(30, human.withSpecies("Goliath").baseSpeed)
+        assertEquals(35, human.copy(rules = Edition.E2024).withSpecies("Goliath").baseSpeed)
+        // 2024's dwarf walks 30, still +1 HP a level
+        val dwarf2024 = human.copy(rules = Edition.E2024).withSpecies("Dwarf")
+        assertEquals(30, dwarf2024.baseSpeed)
+        assertEquals(32, dwarf2024.maxHp)
+        // the old species' sub-choice doesn't carry over
+        assertEquals("", human.copy(species = "Elf", lineage = "Elven Lineage: High Elf").withSpecies("Dwarf").lineage)
+        // picking the same species changes nothing
+        assertEquals(dwarf, dwarf.withSpecies("Dwarf"))
+    }
+
+    @Test
+    fun hillDwarvesAreTough2014MountainDwarvesAreNot() {
+        assertEquals(1, speciesHpPerLevel("Dwarf", Edition.E2014))
+        assertEquals(1, speciesHpPerLevel("Hill Dwarf", Edition.E2014))
+        assertEquals(0, speciesHpPerLevel("Mountain Dwarf", Edition.E2014))
+        assertEquals(1, speciesHpPerLevel("Mountain Dwarf", Edition.E2024))
+        assertEquals(0, speciesHpPerLevel("Human", Edition.E2014))
+        assertEquals(25, speciesOf("Lightfoot Halfling")?.speedIn(Edition.E2014))
+        // an imported Hill Dwarf, made a human in Edit, loses the HP
+        val hill = Character(species = "Hill Dwarf", level = 5, maxHp = 50, hp = 50, baseSpeed = 25)
+        assertEquals(45, hill.withSpecies("Human").maxHp)
+        assertEquals(30, hill.withSpecies("Human").baseSpeed)
+    }
+
+    @Test
+    fun switchingRulesMovesADwarfsSpeedButNotOneSetByHand() {
+        val dwarf = Character(species = "Dwarf", level = 3, maxHp = 30, hp = 30, baseSpeed = 25)
+        assertEquals(30, dwarf.withRules(Edition.E2024).baseSpeed)
+        assertEquals(25, dwarf.withRules(Edition.E2024).withRules(Edition.E2014).baseSpeed)
+        assertEquals(40, dwarf.copy(baseSpeed = 40).withRules(Edition.E2024).baseSpeed)
+        // a 2014 mountain dwarf has no Dwarven Toughness; in 2024 every dwarf does
+        val mountain = Character(species = "Mountain Dwarf", level = 3, maxHp = 30, hp = 30, baseSpeed = 25)
+        assertEquals(33, mountain.withRules(Edition.E2024).maxHp)
+        assertEquals(30, mountain.withRules(Edition.E2024).withRules(Edition.E2014).maxHp)
+    }
+
+    @Test
+    fun aNew2014DwarfWalks25() {
+        assertEquals(25, Draft(species = "Dwarf").build().baseSpeed)
+        assertEquals(30, Draft(species = "Human").build().baseSpeed)
+    }
 }

@@ -140,26 +140,42 @@ const val EPIC_BOON_LEVEL = 19
 
 data class SpeciesInfo(
     val name: String,
+    /** Walking speed, 2024. */
     val speed: Int = 30,
-    /** Dwarven Toughness. */
+    /** Walking speed, 2014, where it differs: the small and stout walk 25. */
+    val speed2014: Int = speed,
+    /** Dwarven Toughness (2014: the hill dwarf's, the SRD's dwarf). */
     val hpPerLevel: Int = 0,
     /** A skill to pick: Elves' Keen Senses, Humans' Skillful. */
     val skillChoices: List<Skill> = emptyList(),
-)
+) {
+    fun speedIn(rules: Edition): Int = if (rules == Edition.E2014) speed2014 else speed
+}
 
 val SPECIES: List<SpeciesInfo> = listOf(
     SpeciesInfo("Dragonborn"),
-    SpeciesInfo("Dwarf", hpPerLevel = 1),
+    SpeciesInfo("Dwarf", speed2014 = 25, hpPerLevel = 1),
     SpeciesInfo("Elf", skillChoices = listOf(Skill.Insight, Skill.Perception, Skill.Survival)),
-    SpeciesInfo("Gnome"),
-    SpeciesInfo("Goliath", speed = 35),
-    SpeciesInfo("Halfling"),
+    SpeciesInfo("Gnome", speed2014 = 25),
+    SpeciesInfo("Goliath", speed = 35, speed2014 = 30),
+    SpeciesInfo("Halfling", speed2014 = 25),
     SpeciesInfo("Human", skillChoices = Skill.entries),
     SpeciesInfo("Orc"),
     SpeciesInfo("Tiefling"),
 )
 
 fun speciesInfo(name: String): SpeciesInfo? = SPECIES.find { it.name == name }
+
+/** The species, or the one a subrace is of, as D&D Beyond names them ("Hill Dwarf", "Lightfoot Halfling"). */
+fun speciesOf(name: String): SpeciesInfo? =
+    speciesInfo(name) ?: SPECIES.find { Regex("\\b${it.name}\\b", RegexOption.IGNORE_CASE).containsMatchIn(name) }
+
+/** Extra HP a level from the species: Dwarven Toughness. 2014 gives it to hill dwarves, not mountain dwarves or duergar. */
+fun speciesHpPerLevel(name: String, rules: Edition): Int {
+    val sp = speciesOf(name) ?: return 0
+    val otherSubrace = name != sp.name && !name.contains("Hill", ignoreCase = true)
+    return if (rules == Edition.E2014 && sp.name == "Dwarf" && otherSubrace) 0 else sp.hpPerLevel
+}
 
 /** A background raises three scores (+2/+1 or +1/+1/+1) and trains two skills. Custom: any of each. */
 data class BackgroundInfo(val name: String, val abilities: List<Ability>, val skills: Set<Skill>) {
@@ -449,7 +465,7 @@ data class Draft(
     /** Expertise slots open at this level, by the class's table. */
     val expertiseCount: Int get() = cls?.expertise?.filterKeys { it <= level }?.values?.sum() ?: 0
 
-    val hpPerLevelBonus: Int get() = (speciesInfo?.hpPerLevel ?: 0) + if (versatileFeat == TOUGH_FEAT) TOUGH_HP_PER_LEVEL else 0
+    val hpPerLevelBonus: Int get() = speciesHpPerLevel(species, Edition.E2014) + if (versatileFeat == TOUGH_FEAT) TOUGH_HP_PER_LEVEL else 0
 
     /** Full hit die at 1st level; the fixed average for each level after. Never less than 1 a level. */
     val maxHp: Int
@@ -525,7 +541,7 @@ data class Draft(
             hp = maxHp,
             wearing = armorInfo.name.takeIf { armorInfo.weight != ArmorWeight.None },
             shield = shield,
-            baseSpeed = speciesInfo?.speed ?: 30,
+            baseSpeed = speciesInfo?.speedIn(Edition.E2014) ?: 30,
             items = items,
             coins = if (gp > 0) mapOf(Coin.GP to gp) else emptyMap(),
         ).withClassSlots(cls, level)

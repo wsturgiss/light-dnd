@@ -57,7 +57,8 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
             }, valueStyle = Style.Body)
             KeyValueRow("Species", c.species.ifEmpty { "—" }, {
                 pick("Species", SPECIES.map { Option(it.name) }, SPECIES.indexOfFirst { it.name == c.species }) { i ->
-                    Store.edit { it.copy(species = SPECIES[i].name) }
+                    // Dwarven Toughness and speed follow, as Tough does under Feats
+                    Store.edit { it.withSpecies(SPECIES[i].name) }
                 }
             }, valueStyle = Style.Body)
             KeyValueRow("Background", c.background.ifEmpty { "—" }, {
@@ -73,7 +74,7 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
                 KeyValueRow("Level up", "${c.level} → ${c.level + 1}", { navigateTo(screenFactory = { LevelUpScreen(it) }) })
             }
             // where the books differ: Jack of All Trades, Remarkable Athlete, shields, dwarves in heavy armor
-            KeyValueRow("Rules", c.rules.label, { Store.edit { it.copy(rules = it.rules.next()) } }, valueStyle = Style.Body)
+            KeyValueRow("Rules", c.rules.label, { Store.edit { it.withRules(it.rules.next()) } }, valueStyle = Style.Body)
 
             Section("Scores")
             Ability.entries.forEach { a ->

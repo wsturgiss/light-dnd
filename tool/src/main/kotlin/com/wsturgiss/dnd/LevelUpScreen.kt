@@ -25,7 +25,7 @@ import com.wsturgiss.dnd.model.plainName
 import com.wsturgiss.dnd.model.levelPlan
 import com.wsturgiss.dnd.model.levelUp
 import com.wsturgiss.dnd.model.signed
-import com.wsturgiss.dnd.model.speciesInfo
+import com.wsturgiss.dnd.model.speciesHpPerLevel
 import com.wsturgiss.dnd.model.TOUGH_FEAT
 import com.wsturgiss.dnd.model.TOUGH_HP_PER_LEVEL
 import com.wsturgiss.dnd.ui.ScrollPage
@@ -181,7 +181,7 @@ class LevelUpScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seale
                 T(rolledHit?.toString() ?: "?", Style.Mono, dim = rolledHit == null)
             }
             val con = after.mod(Ability.CON)
-            val dwarf = speciesInfo(c.species)?.hpPerLevel ?: 0
+            val dwarf = speciesHpPerLevel(c.species, c.rules)
             val tough = c.hpPerLevelBonus - dwarf
             T(
                 "$hit ${signed(con)} CON" + (if (dwarf > 0) " +$dwarf ${c.species}" else "") + (if (tough > 0) " +$tough Tough" else "") +

@@ -28,6 +28,7 @@ import com.wsturgiss.dnd.model.Caster
 import com.wsturgiss.dnd.model.ClassInfo
 import com.wsturgiss.dnd.model.Building
 import com.wsturgiss.dnd.model.Draft
+import com.wsturgiss.dnd.model.Edition
 import com.wsturgiss.dnd.model.INITIATE_FEAT
 import com.wsturgiss.dnd.model.INITIATE_FROM_BACKGROUND
 import com.wsturgiss.dnd.model.INITIATE_FROM_SPECIES
@@ -329,7 +330,7 @@ class CreateScreen(sealedActivity: SealedLightActivity) : DndScreen<Boolean>(sea
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Stat(if (d.manualHp != null) "HP (TYPED)" else "HP", "${d.maxHp}")
                 Stat("AC", "${d.ac}")
-                Stat("SPEED", "${d.speciesInfo?.speed ?: 30}")
+                Stat("SPEED", "${d.speciesInfo?.speedIn(Edition.E2014) ?: 30}")
                 Stat("INIT", signed(d.mod(Ability.DEX)))
             }
             cls?.let { c ->
