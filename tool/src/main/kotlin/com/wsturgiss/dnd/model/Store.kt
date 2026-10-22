@@ -28,6 +28,8 @@ data class LoggedRoll(
     /** Both d20s when rolled with advantage or disadvantage; [natural] is the one kept. */
     val edgeDice: List<Int> = emptyList(),
     val at: Long = System.currentTimeMillis(),
+    /** Who rolled it, by name; null on rolls from before this was kept. */
+    val by: String? = null,
 )
 
 @Serializable
@@ -43,6 +45,9 @@ data class SaveFile(
     @SerialName("character") val single: Character? = null,
 ) {
     val character: Character get() = characters.getOrNull(active) ?: characters.firstOrNull() ?: Character()
+
+    /** The playing character's last roll: the log is the table's, but this is theirs. */
+    val lastRoll: LoggedRoll? get() = character.name.let { name -> log.firstOrNull { it.by == name } }
 
     /** This file with the active character changed. */
     fun withCharacter(change: (Character) -> Character): SaveFile {
@@ -143,6 +148,16 @@ object Store {
         save()
     }
 
+    /**
+     * Puts [c] in place of the active character. The save as it stood is kept first, beside it, as
+     * `character.json.bak-<time>`; [reload] only ever reads `character.json`, so a sync leaves it be.
+     */
+    fun replaceActive(c: Character) {
+        val before = _state.value
+        _state.update { s -> s.copy(characters = s.characters.mapIndexed { i, old -> if (i == s.active) c else old }.ifEmpty { listOf(c) }) }
+        save(backup = before)
+    }
+
     fun switchTo(index: Int) {
         _state.update { it.copy(active = index.coerceIn(it.characters.indices)) }
         save()
@@ -172,7 +187,7 @@ object Store {
     }
 
     fun record(label: String, roll: Roll): LoggedRoll {
-        val entry = LoggedRoll(label, roll.expr.toString(), roll.detail, roll.total, roll.edge, roll.natural, roll.edgeDice)
+        val entry = LoggedRoll(label, roll.expr.toString(), roll.detail, roll.total, roll.edge, roll.natural, roll.edgeDice, by = character.name)
         _state.update { it.copy(log = (listOf(entry) + it.log).take(LOG_LIMIT)) }
         save()
         return entry
@@ -188,11 +203,22 @@ object Store {
         save()
     }
 
-    private fun save() {
+    private fun save(backup: SaveFile? = null) {
         val f = file ?: return
         val snapshot = _state.value
         scope.launch {
             writeLock.withLock {
+                if (backup != null) {
+                    runCatching {
+                        val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
+                        File(f.parentFile, "${f.name}.bak-$stamp").writeText(json.encodeToString(SaveFile.serializer(), backup))
+                    }.onFailure {
+                        // no backup, no replace: put the old save back unless something's changed since
+                        Log.e(TAG, "Backup failed; not replacing", it)
+                        _state.compareAndSet(snapshot, backup)
+                        return@withLock
+                    }
+                }
                 runCatching {
                     // Hidden, so the Tool Manager doesn't list a half-written file.
                     val tmp = File(f.parentFile, ".${f.name}.tmp")

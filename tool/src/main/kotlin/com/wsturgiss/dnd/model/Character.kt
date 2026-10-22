@@ -62,6 +62,8 @@ data class Item(
     val srdKind: String? = null,
     /** Disadvantage on Stealth, set on the item; null follows the SRD for armor of this name. */
     val stealthDisadvantage: Boolean? = null,
+    /** In hand or on, as D&D Beyond had it. Armor and shields go by [Character.wearing] and [Character.shield]. */
+    val equipped: Boolean = false,
 )
 
 /** A feat taken, by its Look up name, and what it was taken for ("Cleric" for Magic Initiate). */
@@ -109,6 +111,9 @@ data class Character(
     val spells: List<String> = emptyList(),
     val items: List<Item> = emptyList(),
     val coins: Map<Coin, Int> = emptyMap(),
+    val inspiration: Boolean = false,
+    /** Free text: what an import couldn't fit on the sheet, backstory, anything. */
+    val notes: String = "",
 ) {
     val proficiency: Int get() = 2 + (level.coerceIn(1, 20) - 1) / 4
 

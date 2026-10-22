@@ -51,6 +51,12 @@ class CharactersScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(se
                     }
                 }
             }
+            TapRow(onClick = {
+                navigateTo(screenFactory = { DdbImportScreen(it) }, resultCallback = { done -> if (done) goBack(null) })
+            }, Modifier.padding(top = 1f.gridUnitsAsDp())) {
+                T("Import from D&D Beyond", Style.Body, Modifier.weight(1f))
+                T("›", Style.Heading, dim = true)
+            }
         }
     }
 }

@@ -390,7 +390,7 @@ class LogScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
                 TapRow(onClick = { roll(RollRequest(r.expr, r.label, r.edge)) }) {
                     Column(Modifier.weight(1f)) {
                         T(r.label, Style.Body, maxLines = 1)
-                        T("${r.expr}  ${r.detail}", Style.MonoSmall, dim = true, maxLines = 1)
+                        T(listOfNotNull(r.by, "${r.expr}  ${r.detail}").joinToString("  ·  "), Style.MonoSmall, dim = true, maxLines = 1)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         T(r.total.toString(), Style.MonoBig, align = TextAlign.End)
