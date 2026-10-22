@@ -78,6 +78,10 @@ class RollScreen(
         get() = combinedEdge(
             listOf(edge) + listOfNotNull(Edge.Disadvantage.takeIf { imposed.isNotEmpty() }, Edge.Advantage.takeIf { granted.isNotEmpty() }),
         )
+    /** An attack roll, so a natural 20 or 1 decides it; gone with a new expression. */
+    private var attack by mutableStateOf(request?.attack == true)
+    /** Damage from a critical hit: every die twice. Only for rolls that aren't a d20 test. */
+    private var crit by mutableStateOf(false)
     private var result by mutableStateOf<LoggedRoll?>(null)
     /** The roll behind [result], with every die's face, for the animation. */
     private var lastRoll by mutableStateOf<Roll?>(null)
@@ -96,8 +100,9 @@ class RollScreen(
     private fun rollNow() {
         val e = expr ?: DiceExpr.parse("d20")!!
         expr = e
-        val roll = e.roll(rolledEdge)
-        result = Store.record(label ?: e.toString(), roll)
+        val doubled = crit && !e.isSingleD20
+        val roll = (if (doubled) e.critical() else e).roll(rolledEdge)
+        result = Store.record((label ?: e.toString()) + if (doubled) ", critical" else "", roll, attack)
         lastRoll = roll
         rollId++
         landed = false
@@ -113,12 +118,15 @@ class RollScreen(
             label = null
             imposed = emptyList()
             granted = emptyList()
+            attack = false
+            crit = false
             fresh = false
         }
         // A modifier with no dice yet applies to a d20: +5 then Roll is d20+5, not a flat 5.
         val start = if (base.isEmpty() && term.drop(1).first().isDigit()) "d20" else base
         expr = DiceExpr.parse(if (start.isEmpty()) term.removePrefix("+") else start + term) ?: expr
         if (!edgeAllowed) edge = Edge.None
+        if (edgeAllowed) crit = false
     }
 
     private fun clear() {
@@ -130,6 +138,8 @@ class RollScreen(
         edge = Edge.None
         imposed = emptyList()
         granted = emptyList()
+        attack = false
+        crit = false
     }
 
     @Composable
@@ -191,8 +201,7 @@ class RollScreen(
             }
             T(r.total.toString(), Style.Total)
             val tag = when {
-                r.natural == 20 -> "NATURAL 20"
-                r.natural == 1 -> "NATURAL 1"
+                r.natural == 20 || r.natural == 1 -> naturalTag(r)!!
                 r.edge == Edge.Advantage -> "advantage"
                 r.edge == Edge.Disadvantage -> "disadvantage"
                 else -> ""
@@ -220,7 +229,7 @@ class RollScreen(
         val mod = roll.parts.sumOf { p -> (p.term as? DiceExpr.Flat)?.let { it.value * it.sign } ?: 0 }
         val counted = dice.count { !it.dim }
         val arithmetic = mod != 0 || counted > 1
-        val tag = if (r.natural == 20 || r.natural == 1) "NATURAL ${r.natural}" else null
+        val tag = naturalTag(r)
         val gap = 1f.gridUnitsAsDp()
         SubcomposeLayout(stageModifier.fillMaxWidth()) { cs ->
             val maxW = cs.maxWidth
@@ -328,7 +337,14 @@ class RollScreen(
             },
             Style.MonoBig,
         )
-        if (kept == 20 || kept == 1) T("NATURAL $kept", Style.Mono)
+        naturalTag(r)?.let { T(it, Style.Mono) }
+    }
+
+    /** A natural 20 or 1, and on an attack roll what it means: a critical hit, a miss. */
+    private fun naturalTag(r: LoggedRoll): String? = when (r.natural) {
+        20 -> if (r.attack) "CRITICAL HIT" else "NATURAL 20"
+        1 -> if (r.attack) "AUTO MISS" else "NATURAL 1"
+        else -> null
     }
 
     @Composable
@@ -347,10 +363,11 @@ class RollScreen(
             val marks = listOfNotNull(
                 "ADV".takeIf { edge == Edge.Advantage || granted.isNotEmpty() },
                 "DIS".takeIf { edge == Edge.Disadvantage || imposed.isNotEmpty() },
+                "CRIT".takeIf { crit },
             )
             if (marks.isNotEmpty()) T(marks.joinToString(" "), Style.Mono)
             // clears the expression and the result; only there when there's something to clear
-            if (e != null || result != null || edge != Edge.None || imposed.isNotEmpty() || granted.isNotEmpty()) {
+            if (e != null || result != null || edge != Edge.None || imposed.isNotEmpty() || granted.isNotEmpty() || crit) {
                 Box(
                     Modifier
                         .lightClickable(onClick = ::clear)
@@ -371,13 +388,17 @@ class RollScreen(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = gap) {
             PadKey("d100", Modifier.weight(1f)) { add("+d100") }
-            // 5e: advantage and disadvantage only ever apply to a d20 test
-            val edgeOk = edgeAllowed
-            PadKey("ADV", Modifier.weight(1f), selected = edge == Edge.Advantage, enabled = edgeOk) {
-                edge = if (edge == Edge.Advantage) Edge.None else Edge.Advantage
-            }
-            PadKey("DIS", Modifier.weight(1f), selected = edge == Edge.Disadvantage, enabled = edgeOk) {
-                edge = if (edge == Edge.Disadvantage) Edge.None else Edge.Disadvantage
+            // 5e: advantage and disadvantage only ever apply to a d20 test; anything else may be
+            // a critical hit's damage, so the same place doubles the dice instead
+            if (edgeAllowed) {
+                PadKey("ADV", Modifier.weight(1f), selected = edge == Edge.Advantage) {
+                    edge = if (edge == Edge.Advantage) Edge.None else Edge.Advantage
+                }
+                PadKey("DIS", Modifier.weight(1f), selected = edge == Edge.Disadvantage) {
+                    edge = if (edge == Edge.Disadvantage) Edge.None else Edge.Disadvantage
+                }
+            } else {
+                PadKey("CRIT", Modifier.weight(2f), selected = crit, enabled = expr?.hasDice == true) { crit = !crit }
             }
             listOf("-1", "+1", "+5").forEach { m -> PadKey(m, Modifier.weight(1f)) { add(m) } }
         }
@@ -401,7 +422,7 @@ class LogScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
             KeyValueRow("Dice animation", save.diceCamera.label, onClick = { Store.cycleDiceCamera() })
             if (save.log.isEmpty()) T("Nothing rolled yet.", Style.Body, dim = true, modifier = Modifier.padding(top = 1f.gridUnitsAsDp()))
             save.log.forEach { r ->
-                TapRow(onClick = { roll(RollRequest(r.expr, r.label, r.edge)) }) {
+                TapRow(onClick = { roll(RollRequest(r.expr, r.label, r.edge, attack = r.attack)) }) {
                     Column(Modifier.weight(1f)) {
                         T(r.label, Style.Body, maxLines = 1)
                         T(listOfNotNull(r.by, "${r.expr}  ${r.detail}").joinToString("  ·  "), Style.MonoSmall, dim = true, maxLines = 1)

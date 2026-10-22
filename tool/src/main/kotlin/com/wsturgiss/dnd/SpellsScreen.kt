@@ -60,7 +60,7 @@ class SpellsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
                         T("save DC ", Style.Small, dim = true)
                         T("${8 + attack}", Style.MonoBig)
                     }
-                    TapRow(onClick = { roll("d20${signed(attack)}", "Spell attack") }, Modifier.weight(1f)) {
+                    TapRow(onClick = { roll(RollRequest("d20${signed(attack)}", "Spell attack", attack = true)) }, Modifier.weight(1f)) {
                         T("attack ", Style.Small, dim = true)
                         T(signed(attack), Style.MonoBig)
                     }

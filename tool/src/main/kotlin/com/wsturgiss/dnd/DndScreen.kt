@@ -16,6 +16,8 @@ data class RollRequest(
     val disadvantageFrom: List<String> = emptyList(),
     /** What gives it advantage ("Remarkable Athlete"); against [disadvantageFrom] they cancel. */
     val advantageFrom: List<String> = emptyList(),
+    /** An attack roll: a natural 20 is a critical hit, a natural 1 a miss. */
+    val attack: Boolean = false,
 )
 
 /** Base for every screen here: makes sure the save file is loaded, and holds the common jumps. */

@@ -38,6 +38,11 @@ data class DiceExpr(val terms: List<Term>) {
     val isSingleD20: Boolean
         get() = terms.filterIsInstance<Dice>().let { it.size == 1 && it[0].count == 1 && it[0].sides == 20 }
 
+    /** A critical hit's damage: every die rolled twice, the modifiers added once. `2d6+3` → `4d6+3`. */
+    fun critical(): DiceExpr = DiceExpr(terms.map { if (it is Dice) it.copy(count = it.count * 2) else it })
+
+    val hasDice: Boolean get() = terms.any { it is Dice }
+
     /** Canonical text: `2d6+3`, `d20-1`. */
     override fun toString(): String = buildString {
         terms.forEachIndexed { i, t ->
@@ -139,4 +144,22 @@ data class Roll(val expr: DiceExpr, val edge: Edge, val parts: List<DiceExpr.Par
                 else -> p.faces.joinToString(" ", prefix = if (p.term.sign < 0) "-[" else "[", postfix = "]")
             }
         }.removePrefix("+")
+}
+
+/** On an attack roll the d20 can settle it alone: a natural 20 hits and is a critical hit, a natural 1 misses. */
+enum class AttackResult { CriticalHit, Miss }
+
+/** Read as an attack roll: a natural 20 or 1 decides it; null when the total against AC does. */
+val Roll.attackResult: AttackResult?
+    get() = when (natural) {
+        20 -> AttackResult.CriticalHit
+        1 -> AttackResult.Miss
+        else -> null
+    }
+
+/** This attack roll against [ac]: a natural 20 always hits, a natural 1 never does. Checks and saves have no such rule. */
+fun Roll.hits(ac: Int): Boolean = when (attackResult) {
+    AttackResult.CriticalHit -> true
+    AttackResult.Miss -> false
+    null -> total >= ac
 }

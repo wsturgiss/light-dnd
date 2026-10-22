@@ -30,6 +30,8 @@ data class LoggedRoll(
     val at: Long = System.currentTimeMillis(),
     /** Who rolled it, by name; null on rolls from before this was kept. */
     val by: String? = null,
+    /** An attack roll, where a natural 20 is a critical hit and a natural 1 a miss. */
+    val attack: Boolean = false,
 )
 
 @Serializable
@@ -186,8 +188,8 @@ object Store {
         save()
     }
 
-    fun record(label: String, roll: Roll): LoggedRoll {
-        val entry = LoggedRoll(label, roll.expr.toString(), roll.detail, roll.total, roll.edge, roll.natural, roll.edgeDice, by = character.name)
+    fun record(label: String, roll: Roll, attack: Boolean = false): LoggedRoll {
+        val entry = LoggedRoll(label, roll.expr.toString(), roll.detail, roll.total, roll.edge, roll.natural, roll.edgeDice, by = character.name, attack = attack)
         _state.update { it.copy(log = (listOf(entry) + it.log).take(LOG_LIMIT)) }
         save()
         return entry

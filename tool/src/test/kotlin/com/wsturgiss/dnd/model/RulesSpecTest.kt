@@ -1,7 +1,6 @@
 package com.wsturgiss.dnd.model
 
 import kotlin.random.Random
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -10,7 +9,6 @@ import kotlin.test.assertTrue
 
 /**
  * The rules spec (qa-dnd-shots/rules-spec.md), one test per case, named by its id. 2024 rules.
- * Cases whose feature the app doesn't have are @Ignore'd as NOT IMPLEMENTED, with the expectation kept.
  */
 class RulesSpecTest {
 
@@ -309,10 +307,21 @@ class RulesSpecTest {
         assertTrue(straight.edgeDice.isEmpty())
     }
 
-    @Ignore("NOT IMPLEMENTED: rolls have no attack type; a natural 20/1 is only labelled, never a crit, hit or miss")
     @Test
     fun H3_attackNat20CritsNat1Misses() {
-        assertNull(roll("d20+5", Edge.None, 20).natural, "expected an attack result, not just a natural")
+        val twenty = roll("d20+0", Edge.None, 20)
+        assertEquals(AttackResult.CriticalHit, twenty.attackResult)
+        assertTrue(twenty.hits(ac = 30))
+        val one = roll("d20+30", Edge.None, 1)
+        assertEquals(AttackResult.Miss, one.attackResult)
+        assertFalse(one.hits(ac = 10))
+        // otherwise the total against AC decides
+        assertNull(roll("d20+5", Edge.None, 12).attackResult)
+        assertTrue(roll("d20+5", Edge.None, 12).hits(ac = 17))
+        assertFalse(roll("d20+5", Edge.None, 11).hits(ac = 17))
+        // with advantage it's the kept die that counts
+        assertEquals(AttackResult.CriticalHit, roll("d20+5", Edge.Advantage, 3, 20).attackResult)
+        assertEquals(AttackResult.Miss, roll("d20+5", Edge.Disadvantage, 1, 20).attackResult)
     }
 
     @Test
@@ -325,10 +334,12 @@ class RulesSpecTest {
         assertEquals(11, low.total)
     }
 
-    @Ignore("NOT IMPLEMENTED: no critical damage (dice doubled, modifier once)")
     @Test
     fun H5_critDoublesDiceNotModifier() {
-        assertEquals(2 + 5 + 3 + 4 + 3, roll("2d6+3", Edge.None, 2, 5, 3, 4).total)
+        val crit = DiceExpr.parse("2d6+3")!!.critical()
+        assertEquals("4d6+3", crit.toString())
+        assertEquals(2 + 5 + 3 + 4 + 3, crit.roll(Edge.None, Faces(2, 5, 3, 4)).total)
+        assertEquals("2d8+2d6-1", DiceExpr.parse("1d8+1d6-1")!!.critical().toString())
     }
 
     @Test
