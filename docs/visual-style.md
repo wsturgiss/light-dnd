@@ -1,7 +1,7 @@
 # Visual style
 
 What the app looks like and the rules that keep it that way. The code is `tool/src/main/kotlin/com/wsturgiss/dnd/ui/`:
-type in `Type.kt`, page chrome in `Chrome.kt`, rules text in `Markup.kt`, dice in `DiceStage.kt` (see
+type in `Type.kt`, page chrome in `Chrome.kt`, the folio frame and its marks in `Folio.kt`, rules text in `Markup.kt`, dice in `DiceStage.kt` (see
 `dice-animation.md`).
 
 ## The idea
@@ -16,6 +16,10 @@ rather than on top of it, so it keeps the system's bars, grid and theme, and the
   hard-coded, so the UI follows the system theme. LightOS greys the whole screen anyway.
 - **Every pixel on the grid.** The fonts are pixel fonts, and everything is drawn at whole-number scales, so no
   stroke is ever blurred or uneven.
+- **Framed as a folio.** Each page is a manuscript leaf ("illuminated folios"): a heavy rule and a hairline
+  inside it round the screen, a ♦ at each corner, the title between two ♦ over a double rule, names and
+  section headings opening on a large Jacquard capital, and a scrolling page ending in the landscape and its
+  folio number (`fol. 2r`). The frame is ink and dim lines on the ground, so it still keeps the theme.
 - **Calm.** Motion only where it means something (the dice), one haptic tick, and every animation can be
   skipped with a tap or turned off.
 
@@ -37,7 +41,8 @@ Three faces, each with one job, plus an ornament font:
 
 | Style | Face | Scale | Used for |
 |---|---|---|---|
-| `Banner` | Jacquard | 2 | Character name, `Section` headings, headings in rules text |
+| `Banner` | Jacquard | 2 | Character name, `Section` headings, headings in rules text, the crit banner |
+| `Capital` | Jacquard | 3 | The illuminated first letter of a name or `Section` heading (`Illuminated`) |
 | `Heading` | MEK Sans | 5 | Home menu items, HP label |
 | `Body` | MEK Sans | 4 | Most text: skills, spell names, empty states |
 | `Small` | MEK Sans | 3 | Captions, column headers, rules text, keys |
@@ -46,6 +51,7 @@ Three faces, each with one job, plus an ornament font:
 | `Mono` | IBM VGA | 4 | Values, scores, pad keys, the roll builder |
 | `MonoSmall` | IBM VGA | 3 | Details beside a menu item or spell |
 | `Ornament` | MEK Dings | 5 | The landscape |
+| `Mark` | IBM VGA | 2 | The folio's ♦ (corners, title, fleurons) |
 
 Sizes go through `LocalDensity`, so the system font scale can't knock them off the grid. Add a size by picking
 a new whole-number scale, never an sp value.
@@ -60,19 +66,30 @@ a new whole-number scale, never an sp value.
 
 ## Layout
 
-- **Every screen is a `Page`**: the LightOS top bar (back on the left, the title, the page's one action on the
-  right, as an icon), then the content. Other actions live in the content; only Roll has a bottom bar, for the die. The SDK's bars use LightOS's type scale with MEK Sans in place of Akkurat, so they match the
-  content.
-- **Grid units, not dp.** Spacing is in LightOS grid units (the screen is 27 wide). Content has a 1.25-unit
-  `GUTTER` either side.
+- **Every screen is a `Page`**: the folio frame, the LightOS top bar (back on the left, the page's one action on
+  the right, as an icon) with the title between two ♦ in the middle and a double rule under it, then the
+  content. Other actions live in the content; only Roll has a bottom bar, for the die, over a double rule
+  with the folio number beside it. The SDK's bars use LightOS's type scale with MEK Sans in place of Akkurat,
+  so they match the content.
+- **The frame** (`FolioFrame`): a 3 px rule 0.35 units in and a 1 px dim hairline 0.65 units in, broken at the
+  corners by a ♦ on a square of ground. Content stops at the hairline rather than running under it.
+- **Folio numbers** follow the design's leaves: Home 1r, Characters 1v, Sheet 2r, Spells 2v, Bag 3r,
+  Features 3v, Roll 4r, Rest 5r, Look up 6r, D&D Beyond 7r, Conditions 7v, Edit 8r, New character 9r.
+  A `ScrollPage` given a `folio` ends in `FolioFoot`: a fleuron, the landscape and the number. Home has no
+  room for the whole foot, so it keeps just the landscape.
+- **Grid units, not dp.** Spacing is in LightOS grid units (the screen is 27 wide). Content has a 1.6-unit
+  `GUTTER` either side, clear of the frame; Roll uses the 1.25-unit `PAD_GUTTER` so its six keys a row fit.
 - **Rows are tap targets.** `TapRow` is full width and at least 2.4 units tall. If something has a bonus, its
   row rolls it: abilities, saves, skills, initiative, spell attack, dice in rules text.
 - **`KeyValueRow` is the sheet's basic shape**: a label on the left in `Body`, a value on the right in `Mono`.
-- **Sections** are a Jacquard `Banner` over a 1 dp dim rule. Rules (`Rule`) are the only lines in the content.
+- **Sections** are an `Illuminated` heading (a `Capital`, then `Banner`) over a `Fleuron`: a dim double
+  rule broken by a ♦. The lines in the content are `Fleuron`s between parts of a page, plain `Rule`s,
+  and `DottedRule`s (under the roller's expression, between the Bag's coins).
 - **Columns** are equal `weight`s with numbers right-aligned under right-aligned dim `Small` headers (the
   abilities table).
-- **Home is a column of big words**, the way LightOS lays out its own menus: the character, a rule, five
-  `Heading` menu items each with a `MonoSmall` dim detail on the right, and the landscape along the bottom.
+- **Home is a column of big words**, the way LightOS lays out its own menus: the character, a fleuron, six
+  `Heading` menu items each with a `MonoSmall` dim detail on the right (cut short before the word is), and
+  the landscape along the bottom.
 
 ## Marks and states
 
@@ -85,9 +102,16 @@ a new whole-number scale, never an sp value.
 | `[x][x][ ][ ]` | Spell slots: spent on the left, what's left as empty boxes | Spells |
 | underline | Tappable dice or attack bonus | Rules text |
 | `›` after a label | Tap it (rolls or opens) | Stats in the sheet's top row, like `INIT ›` |
+| `►` | The character you're playing | Characters |
+| `¶` | An aside: what a roll was for, what the bag is worth | Roll, Bag (`Pilcrow`) |
 
 - **Dim is the only secondary state**: labels, captions, empty states, the dice not counted, a disabled key.
 - **Selected is inverted**: a selected pad key fills with `content` and its label turns `background`.
+- **A crit is inverted too.** A natural 20 or 1 on a lone d20 (advantage included) puts an `InvertedBanner`,
+  "♦ Natural 20 ♦", over the roll's label once the dice land, and draws lines around the landed die:
+  straight rays for a 20, zigzags for a 1 (`critBurst`). The banner's room is kept from the start of the
+  throw so nothing moves when it appears; with the animation off, it's there at once. Of the design's crit
+  variants (A–H) this is E's banner and burst, with H's zigzag for a 1.
 - **Pad keys** are 1 dp dim boxes with a centred `Mono` label.
 
 ## Pixel art
