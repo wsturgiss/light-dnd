@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.dp
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightBottomBar
@@ -29,13 +31,15 @@ import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.LightTopBar
-import com.thelightphone.sdk.ui.LightTopBarCenter
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
 import com.thelightphone.sdk.ui.rememberLightTypography
 
-/** Horizontal page margin, in LightOS grid units (the screen is 27 wide). */
-const val GUTTER = 1.25f
+/** Horizontal page margin, in LightOS grid units (the screen is 27 wide): clear of the frame. */
+const val GUTTER = 1.6f
+
+/** The roller's narrower margin: its two rows of six keys need the width. */
+const val PAD_GUTTER = 1.25f
 
 /** LightOS's own type scale, with MEK Sans in place of Akkurat, so the SDK's bars match. */
 @Composable
@@ -49,10 +53,11 @@ fun mekTypography() = rememberLightTypography().let { t ->
 }
 
 /**
- * Every screen: the top bar (back on the left, the title, the page's one action on the right),
- * then the content. Back is always in the same corner. Any other action lives in the content,
- * so most pages have no bottom bar; [bottom] is for the one that earns it (Roll's die),
- * centred under the thumb.
+ * Every screen, as a folio leaf: the frame, then the top bar (back on the left, the title between
+ * two ♦, the page's one action on the right) over a double rule, then the content. Back is always
+ * in the same corner. Any other action lives in the content, so most pages have no bottom bar;
+ * [bottom] is for the one that earns it (Roll's die), centred under the thumb, with the page's
+ * [folio] number beside it.
  */
 @Composable
 fun Page(
@@ -60,44 +65,80 @@ fun Page(
     onBack: (() -> Unit)?,
     action: LightBarButton? = null,
     bottom: LightBarButton? = null,
+    folio: String? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val themeColors by LightThemeController.colors.collectAsState()
     LightTheme(colors = themeColors, typography = mekTypography()) {
-        Column(
-            modifier = Modifier
+        Box(
+            Modifier
                 .fillMaxSize()
                 .background(LightThemeTokens.colors.background),
         ) {
-            LightTopBar(
-                leftButton = onBack?.let { LightBarButton.LightIcon(icon = LightIcons.BACK, onClick = it) },
-                center = LightTopBarCenter.Text(title),
-                rightButton = action,
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                content = content,
-            )
-            if (bottom != null) LightBottomBar(items = listOf(bottom))
+            Column(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .ruledAcross(atTop = false)
+                        .padding(top = Folio.INNER.gridUnitsAsDp(), bottom = 0.1f.gridUnitsAsDp())
+                        .padding(horizontal = Folio.INNER.gridUnitsAsDp()),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LightTopBar(
+                        leftButton = onBack?.let { LightBarButton.LightIcon(icon = LightIcons.BACK, onClick = it) },
+                        center = null,
+                        rightButton = action,
+                    )
+                    FolioTitle(title, Modifier.widthIn(max = TITLE_MAX.gridUnitsAsDp()))
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        // the content stops at the frame's hairline rather than running under it
+                        .padding(bottom = if (bottom == null) Folio.INNER.gridUnitsAsDp() + 1.dp else 0.dp)
+                        .clipToBounds(),
+                    content = content,
+                )
+                if (bottom != null) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .ruledAcross(atTop = true)
+                            .padding(start = Folio.INNER.gridUnitsAsDp(), end = Folio.INNER.gridUnitsAsDp(), bottom = Folio.INNER.gridUnitsAsDp()),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        LightBottomBar(items = listOf(bottom))
+                        if (folio != null) T("fol. $folio", Style.MonoSmall, dim = true, modifier = Modifier.padding(start = 1f.gridUnitsAsDp()))
+                    }
+                }
+            }
+            FolioFrame()
         }
     }
 }
 
-/** A page whose content scrolls, with the usual side margins. */
+/** The widest the title gets, in grid units, so it never runs under the bar's buttons. */
+private const val TITLE_MAX = 17f
+
+/**
+ * A page whose content scrolls, with the usual side margins. With a [folio] number, the page ends
+ * in the folio's foot: a fleuron, the landscape, and the number.
+ */
 @Composable
 fun ScrollPage(
     scroll: ScrollState,
     title: String,
     onBack: (() -> Unit)?,
     action: LightBarButton? = null,
+    folio: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) = Page(title, onBack, action) {
     LightScrollView(modifier = Modifier.fillMaxSize(), scrollState = scroll) {
         Column(modifier = Modifier.padding(horizontal = GUTTER.gridUnitsAsDp())) {
             content()
-            Spacer(Modifier.height(1.5f.gridUnitsAsDp()))
+            if (folio != null) FolioFoot(folio, Modifier.padding(top = 1f.gridUnitsAsDp()))
+            else Spacer(Modifier.height(1.5f.gridUnitsAsDp()))
         }
     }
 }
@@ -130,12 +171,12 @@ fun KeyValueRow(key: String, value: String, onClick: (() -> Unit)?, keyStyle: St
     }
 }
 
-/** A section heading in Jacquard, with a rule under it. */
+/** A section heading in Jacquard, opening on an illuminated capital, over a fleuron. */
 @Composable
 fun Section(title: String, modifier: Modifier = Modifier) {
     Column(modifier.padding(top = 1.25f.gridUnitsAsDp(), bottom = 0.35f.gridUnitsAsDp())) {
-        T(title, Style.Banner)
-        Rule(Modifier.padding(top = 0.3f.gridUnitsAsDp()))
+        Illuminated(title, maxLines = 2)
+        Fleuron(Modifier.padding(top = 0.3f.gridUnitsAsDp()))
     }
 }
 

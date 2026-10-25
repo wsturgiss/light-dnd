@@ -46,7 +46,7 @@ class EditScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
         val save by Store.state.collectAsState()
         val c = save.character
 
-        ScrollPage(scroll, title = "Edit", onBack = { goBack(null) }) {
+        ScrollPage(scroll, title = "Edit", folio = "8r", onBack = { goBack(null) }) {
             Section("Who")
             KeyValueRow("Name", c.name, { askText("Name", c.name) { n -> Store.edit { it.copy(name = n) } } }, valueStyle = Style.Body)
             KeyValueRow("Class", c.className, {

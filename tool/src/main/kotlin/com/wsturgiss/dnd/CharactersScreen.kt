@@ -12,6 +12,8 @@ import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.wsturgiss.dnd.model.Store
+import com.wsturgiss.dnd.ui.Fleuron
+import com.wsturgiss.dnd.ui.Illuminated
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.Style
 import com.wsturgiss.dnd.ui.T
@@ -27,6 +29,7 @@ class CharactersScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(se
             scroll,
             title = "Characters",
             onBack = { goBack(null) },
+            folio = "1v",
             action = LightBarButton.LightIcon(LightIcons.ADD, onClick = {
                 navigateTo(screenFactory = { CreateScreen(it) }, resultCallback = { made -> if (made) goBack(null) })
             }),
@@ -36,9 +39,9 @@ class CharactersScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(se
                     Store.switchTo(i)
                     goBack(null)
                 }, Modifier.padding(vertical = 0.2f.gridUnitsAsDp())) {
-                    T(if (i == save.active) "> " else "  ", Style.Mono)
-                    Column(Modifier.weight(1f)) {
-                        T(c.name, Style.Banner, maxLines = 1)
+                    T(if (i == save.active) "► " else "  ", Style.Mono)
+                    Column(Modifier.weight(1f).padding(end = 0.4f.gridUnitsAsDp())) {
+                        Illuminated(c.name)
                         T(
                             listOf("Level ${c.level}", c.species, c.className).filter { it.isNotEmpty() }.joinToString(" "),
                             Style.Small,
@@ -51,9 +54,10 @@ class CharactersScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(se
                     }
                 }
             }
+            Fleuron(Modifier.padding(top = 0.6f.gridUnitsAsDp()))
             TapRow(onClick = {
                 navigateTo(screenFactory = { DdbImportScreen(it) }, resultCallback = { done -> if (done) goBack(null) })
-            }, Modifier.padding(top = 1f.gridUnitsAsDp())) {
+            }) {
                 T("Import from D&D Beyond", Style.Body, Modifier.weight(1f))
                 T("›", Style.Heading, dim = true)
             }

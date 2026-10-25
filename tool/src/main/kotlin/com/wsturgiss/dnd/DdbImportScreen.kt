@@ -21,6 +21,7 @@ import com.wsturgiss.dnd.model.Character
 import com.wsturgiss.dnd.model.DdbImport
 import com.wsturgiss.dnd.model.Store
 import com.wsturgiss.dnd.model.signed
+import com.wsturgiss.dnd.ui.Illuminated
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.Section
 import com.wsturgiss.dnd.ui.Style
@@ -45,7 +46,7 @@ class DdbImportScreen(sealedActivity: SealedLightActivity) : DndScreen<Boolean>(
 
     @Composable
     override fun Content() {
-        ScrollPage(scroll, title = "D&D Beyond", onBack = { goBack(null) }) {
+        ScrollPage(scroll, title = "D&D Beyond", folio = "7r", onBack = { goBack(null) }) {
             T("The character must be public on D&D Beyond. You'll see it before anything is saved.", Style.Small, dim = true)
             TapRow(onClick = {
                 askNumber(NumberRequest("Character ID", "The number in its link: dndbeyond.com/characters/141442128", maxDigits = 12)) { r ->
@@ -106,7 +107,7 @@ class DdbPreviewScreen(sealedActivity: SealedLightActivity, private val id: Long
 
     @Composable
     private fun Preview(c: Character) {
-        T(c.name, Style.Banner, maxLines = 2)
+        Illuminated(c.name, maxLines = 2)
         T(
             listOf("Level ${c.level}", c.species, c.className + (c.subclass.takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: ""), c.background)
                 .filter { it.isNotBlank() }.joinToString(" · "),

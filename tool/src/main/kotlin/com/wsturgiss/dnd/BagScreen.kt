@@ -21,7 +21,10 @@ import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Srd
 import com.wsturgiss.dnd.model.Store
 import com.wsturgiss.dnd.ui.Markup
-import com.wsturgiss.dnd.ui.Rule
+import com.wsturgiss.dnd.ui.Fleuron
+import com.wsturgiss.dnd.ui.Pilcrow
+import com.wsturgiss.dnd.ui.dottedLeft
+import com.wsturgiss.dnd.ui.ruledAcrossFull
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.Section
 import com.wsturgiss.dnd.ui.Style
@@ -39,16 +42,26 @@ class BagScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
         ScrollPage(
             scroll,
             title = "Bag",
+            folio = "3r",
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.ADD, onClick = {
                 navigateTo(screenFactory = { EntryListScreen(it, listOf(Kind.Equipment, Kind.MagicItems), "Add to bag", pickForBag = true) })
             }),
         ) {
-            Row(Modifier.fillMaxWidth().padding(top = 0.6f.gridUnitsAsDp())) {
-                Coin.entries.reversed().forEach { coin ->
+            // the purse: a strip between double rules, a dotted rule between each coin
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 0.6f.gridUnitsAsDp())
+                    .ruledAcrossFull(atTop = true)
+                    .ruledAcrossFull(atTop = false)
+                    .padding(vertical = 0.2f.gridUnitsAsDp()),
+            ) {
+                Coin.entries.reversed().forEachIndexed { i, coin ->
                     Column(
                         Modifier
                             .weight(1f)
+                            .then(if (i > 0) Modifier.dottedLeft() else Modifier)
                             .lightClickable { adjustCoin(coin) }
                             .padding(vertical = 0.4f.gridUnitsAsDp()),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -58,12 +71,12 @@ class BagScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAct
                     }
                 }
             }
-            T(
+            Pilcrow(
                 "worth ${"%.1f".format(c.wealthInGp)} gp  ·  carrying ${"%.1f".format(c.carried)} lb",
-                Style.Small,
-                dim = true,
+                Modifier.padding(top = 0.3f.gridUnitsAsDp()),
+                maxLines = 2,
             )
-            Rule(Modifier.padding(vertical = 0.6f.gridUnitsAsDp()))
+            Fleuron(Modifier.padding(vertical = 0.6f.gridUnitsAsDp()))
 
             if (c.items.isEmpty()) T("Empty. + to add something.", Style.Body, dim = true)
             c.items.forEach { item ->

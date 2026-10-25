@@ -45,7 +45,7 @@ object Fonts {
 /** Font-pixel scale of [Style.Total]; the roller uses it to even out the box around a die. */
 const val TOTAL_SCALE = 10
 
-enum class Style { Ornament, Banner, Total, Heading, Body, Small, Mono, MonoSmall, MonoBig }
+enum class Style { Ornament, Banner, Capital, Total, Heading, Body, Small, Mono, MonoSmall, MonoBig, Mark }
 
 /** Screen pixels → sp. Goes through LocalDensity so it holds at any font scale. */
 @Composable
@@ -57,6 +57,8 @@ fun textStyle(style: Style): TextStyle {
     val (family, emPx, line) = when (style) {
         // Blackletter for headings and names. Its digits are old-style, so never for numbers.
         Style.Banner -> s(Fonts.Jacquard, Fonts.JACQUARD_PX_PER_EM, 2, 1.1f)
+        // The illuminated first letter of a name or section, half as big again as the rest.
+        Style.Capital -> s(Fonts.Jacquard, Fonts.JACQUARD_PX_PER_EM, 3, 0.8f)
         // A big number read at a glance: roll totals, the number pad.
         Style.Total -> s(Fonts.Mono, Fonts.MONO_PX_PER_EM, TOTAL_SCALE, 1.0f)
         Style.Heading -> s(Fonts.Sans, Fonts.SANS_PX_PER_EM, 5, 1.2f)
@@ -65,6 +67,8 @@ fun textStyle(style: Style): TextStyle {
         Style.Mono -> s(Fonts.Mono, Fonts.MONO_PX_PER_EM, 4, 1.3f)
         Style.MonoSmall -> s(Fonts.Mono, Fonts.MONO_PX_PER_EM, 3, 1.3f)
         Style.MonoBig -> s(Fonts.Mono, Fonts.MONO_PX_PER_EM, 5, 1.2f)
+        // The folio's small marks: ♦ at the corners and on the rules, the folio number.
+        Style.Mark -> s(Fonts.Mono, Fonts.MONO_PX_PER_EM, 2, 1.0f)
         Style.Ornament -> s(Fonts.Dings, Fonts.DINGS_PX_PER_EM, 5, 1.0f)
     }
     return TextStyle(

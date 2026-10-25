@@ -47,6 +47,7 @@ class SpellsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
         ScrollPage(
             scroll,
             title = "Spells",
+            folio = "2v",
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.ADD, onClick = {
                 navigateTo(screenFactory = { EntryListScreen(it, listOf(Kind.Spells), "Add spells", classFilter = c.className) })

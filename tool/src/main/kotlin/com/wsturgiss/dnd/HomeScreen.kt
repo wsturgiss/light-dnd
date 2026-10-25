@@ -1,37 +1,30 @@
 package com.wsturgiss.dnd
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.text.BasicText
 import com.thelightphone.sdk.InitialScreen
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightIcons
-import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.wsturgiss.dnd.model.Store
 import com.wsturgiss.dnd.model.signed
+import com.wsturgiss.dnd.ui.Fleuron
 import com.wsturgiss.dnd.ui.GUTTER
-import com.wsturgiss.dnd.ui.LANDSCAPE
+import com.wsturgiss.dnd.ui.Illuminated
+import com.wsturgiss.dnd.ui.LandscapeStrip
 import com.wsturgiss.dnd.ui.Page
-import com.wsturgiss.dnd.ui.Rule
 import com.wsturgiss.dnd.ui.Style
 import com.wsturgiss.dnd.ui.T
 import com.wsturgiss.dnd.ui.TapRow
-import com.wsturgiss.dnd.ui.textStyle
 
 /**
  * The front door: who you are and how you're doing, then four places to go.
@@ -58,7 +51,7 @@ class HomeScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
             ) {
                 TapRow(onClick = { navigateTo(screenFactory = { SheetScreen(it) }) }) {
                     Column(Modifier.weight(1f)) {
-                        T(c.name, Style.Banner, maxLines = 1)
+                        Illuminated(c.name)
                         T("Level ${c.level} ${c.className}", Style.Small, dim = true)
                     }
                     Column(horizontalAlignment = Alignment.End) {
@@ -69,7 +62,7 @@ class HomeScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
                 if (c.conditions.isNotEmpty()) {
                     T(c.conditions.sorted().joinToString(" · "), Style.Small, maxLines = 1)
                 }
-                Rule(Modifier.padding(vertical = 0.6f.gridUnitsAsDp()))
+                Fleuron(Modifier.padding(vertical = 0.6f.gridUnitsAsDp()))
 
                 Menu("Roll", last?.let { "${it.label}  ${it.total}" }) {
                     navigateTo(screenFactory = { RollScreen(it, null) })
@@ -93,7 +86,8 @@ class HomeScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
                 }
 
                 Spacer(Modifier.weight(1f))
-                Landscape()
+                // no room for the whole foot here: just the landscape, inside the frame
+                LandscapeStrip(Modifier.padding(bottom = 0.4f.gridUnitsAsDp()))
             }
         }
     }
@@ -101,30 +95,9 @@ class HomeScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
     @Composable
     private fun Menu(label: String, detail: String?, onClick: () -> Unit) {
         TapRow(onClick = onClick) {
-            T(label, Style.Heading, Modifier.weight(1f))
-            if (detail != null) T(detail, Style.MonoSmall, dim = true, maxLines = 1)
+            // the word first, whole; the detail gets what's left and is cut short if it must be
+            T(label, Style.Heading, maxLines = 1)
+            T(detail.orEmpty(), Style.MonoSmall, Modifier.weight(1f).padding(start = 0.5f.gridUnitsAsDp()), dim = true, align = TextAlign.End, maxLines = 1)
         }
-    }
-}
-
-/** A strip of MEK Dings huts and trees along the bottom edge. */
-@Composable
-fun Landscape(modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .fillMaxWidth()
-            .padding(bottom = 0.4f.gridUnitsAsDp()),
-        contentAlignment = Alignment.Center,
-    ) {
-        BasicText(
-            LANDSCAPE,
-            style = textStyle(Style.Ornament).merge(
-                TextStyle(
-                    color = LightThemeTokens.colors.contentSecondary,
-                    textAlign = TextAlign.Center,
-                ),
-            ),
-            maxLines = 1,
-        )
     }
 }

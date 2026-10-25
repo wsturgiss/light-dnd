@@ -22,6 +22,8 @@ import com.wsturgiss.dnd.model.Skill
 import com.wsturgiss.dnd.model.Store
 import com.wsturgiss.dnd.model.Training
 import com.wsturgiss.dnd.model.signed
+import com.wsturgiss.dnd.ui.Fleuron
+import com.wsturgiss.dnd.ui.Illuminated
 import com.wsturgiss.dnd.ui.KeyValueRow
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.Section
@@ -44,18 +46,20 @@ class SheetScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
         ScrollPage(
             scroll,
             title = "Sheet",
+            folio = "2r",
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.PENCIL, onClick = { navigateTo(screenFactory = { EditScreen(it) }) }),
         ) {
-            T(c.name, Style.Banner, Modifier.padding(top = 0.5f.gridUnitsAsDp()))
+            Illuminated(c.name, Modifier.padding(top = 0.5f.gridUnitsAsDp()), maxLines = 2)
             T(
                 listOf("Level ${c.level}", c.species, c.className).filter { it.isNotEmpty() }.joinToString(" ") +
                     "  ·  proficiency ${signed(c.proficiency)}",
                 Style.Small,
                 dim = true,
             )
+            Fleuron(Modifier.padding(top = 0.5f.gridUnitsAsDp()))
 
-            TapRow(onClick = ::adjustHp, Modifier.padding(top = 0.5f.gridUnitsAsDp())) {
+            TapRow(onClick = ::adjustHp) {
                 T("HP", Style.Heading, Modifier.weight(1f))
                 T("${c.hp} / ${c.maxHp}", Style.MonoBig)
                 if (c.tempHp > 0) T("  +${c.tempHp}", Style.Mono, dim = true)
@@ -165,6 +169,7 @@ class RestScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedAc
         ScrollPage(
             scroll,
             title = "Rest",
+            folio = "5r",
             onBack = { goBack(null) },
         ) {
             Section("Long rest")
@@ -205,7 +210,7 @@ class ConditionsScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(se
         val save by Store.state.collectAsState()
         val active = save.character.conditions
         val all = com.wsturgiss.dnd.model.Srd.load(lightContext, Kind.Conditions)
-        ScrollPage(scroll, title = "Conditions", onBack = { goBack(null) }) {
+        ScrollPage(scroll, title = "Conditions", folio = "7v", onBack = { goBack(null) }) {
             T("Tap to set or clear. › to read the rule.", Style.Small, dim = true, modifier = Modifier.padding(vertical = 0.5f.gridUnitsAsDp()))
             all.forEach { e ->
                 val on = e.name in active

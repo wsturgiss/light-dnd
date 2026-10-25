@@ -44,6 +44,7 @@ class FeaturesScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seal
         ScrollPage(
             scroll,
             title = "Features",
+            folio = "3v",
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.PENCIL, onClick = { navigateTo(screenFactory = { EditScreen(it) }) }),
         ) {

@@ -26,6 +26,7 @@ import com.wsturgiss.dnd.model.levelPlan
 import com.wsturgiss.dnd.model.levelUp
 import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.model.speciesInfo
+import com.wsturgiss.dnd.ui.Illuminated
 import com.wsturgiss.dnd.ui.ScrollPage
 import com.wsturgiss.dnd.ui.Section
 import com.wsturgiss.dnd.ui.Style
@@ -96,7 +97,7 @@ class LevelUpScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(seale
                 goBack(null)
             }),
         ) {
-            T(c.name, Style.Banner, Modifier.padding(top = 0.5f.gridUnitsAsDp()))
+            Illuminated(c.name, Modifier.padding(top = 0.5f.gridUnitsAsDp()), maxLines = 2)
             T("${c.className}, level ${plan.from} to ${plan.to}", Style.Heading)
             if (plan.newProficiency != plan.oldProficiency) {
                 T("Proficiency bonus ${signed(plan.oldProficiency)} to ${signed(plan.newProficiency)}", Style.Small)

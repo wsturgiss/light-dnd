@@ -27,6 +27,9 @@ import com.wsturgiss.dnd.model.Entry
 import com.wsturgiss.dnd.model.Kind
 import com.wsturgiss.dnd.model.Srd
 import com.wsturgiss.dnd.model.Store
+import com.wsturgiss.dnd.ui.Fleuron
+import com.wsturgiss.dnd.ui.Illuminated
+import com.wsturgiss.dnd.ui.LandscapeStrip
 import com.wsturgiss.dnd.ui.GUTTER
 import com.wsturgiss.dnd.ui.Markup
 import com.wsturgiss.dnd.ui.Page
@@ -45,6 +48,7 @@ class LookupScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
         ScrollPage(
             scroll,
             title = "Look up",
+            folio = "6r",
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.SEARCH, onClick = {
                 askText("Search everything") { q ->
@@ -59,7 +63,7 @@ class LookupScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealed
                     T(Srd.load(lightContext, kind).size.toString(), Style.MonoSmall, dim = true)
                 }
             }
-            Rule(Modifier.padding(vertical = 0.8f.gridUnitsAsDp()))
+            Fleuron(Modifier.padding(vertical = 0.8f.gridUnitsAsDp()))
             TapRow(onClick = { navigateTo(screenFactory = { AboutScreen(it) }) }) {
                 T("About & credits", Style.Body, dim = true)
             }
@@ -242,7 +246,7 @@ class EntryScreen(
         val inBag = c.items.find { it.name.equals(e.name, ignoreCase = true) }?.qty
 
         ScrollPage(scroll, title = kind.label, onBack = { goBack(null) }, action = action) {
-            T(e.name, Style.Banner, Modifier.padding(top = 0.5f.gridUnitsAsDp()))
+            Illuminated(e.name, Modifier.padding(top = 0.5f.gridUnitsAsDp()), maxLines = 2)
             T(e.meta, Style.Small, dim = true)
             if (kind == Kind.Conditions) {
                 val on = e.name in c.conditions
@@ -268,7 +272,7 @@ class AboutScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
     @Composable
     override fun Content() {
         ScrollPage(scroll, title = "About", onBack = { goBack(null) }) {
-            Landscape(Modifier.padding(top = 1f.gridUnitsAsDp()))
+            LandscapeStrip(Modifier.padding(top = 1f.gridUnitsAsDp()))
             Section("Rules text")
             T(
                 "This work includes material from the System Reference Document 5.2 (\"SRD 5.2\") by Wizards of " +
@@ -283,7 +287,7 @@ class AboutScreen(sealedActivity: SealedLightActivity) : DndScreen<Unit>(sealedA
             T("Jacquard 24 by Sarah Cadigan-Fried (The Soft Type Project), SIL Open Font License 1.1.", Style.Small, modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp()))
             T("PxPlus IBM VGA 8x16 from VileR's Oldschool PC Font Pack, int10h.org, CC BY-SA 4.0.", Style.Small, modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp()))
             Section("Look")
-            T("After Script Wizards' typewriter character sheets and table-side CLIs.", Style.Small)
+            T("After Script Wizards' typewriter character sheets and table-side CLIs; framed as illuminated folios.", Style.Small)
         }
     }
 }

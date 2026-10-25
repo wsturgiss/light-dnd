@@ -107,6 +107,7 @@ class CreateScreen(sealedActivity: SealedLightActivity) : DndScreen<Boolean>(sea
         ScrollPage(
             scroll,
             title = "New character",
+            folio = "9r",
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.ACCEPT, contentDescription = "Create", onClick = if (missing.isEmpty()) ({
                 Store.addCharacter(b.build(gear))
