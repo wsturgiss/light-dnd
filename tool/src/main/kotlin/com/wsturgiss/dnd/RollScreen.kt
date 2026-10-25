@@ -1,5 +1,6 @@
 package com.wsturgiss.dnd
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -43,7 +44,13 @@ import com.wsturgiss.dnd.model.combinedEdge
 import com.wsturgiss.dnd.model.signed
 import com.wsturgiss.dnd.ui.DiceClips
 import com.wsturgiss.dnd.ui.DiceStage
+import com.wsturgiss.dnd.ui.DottedRule
+import com.wsturgiss.dnd.ui.InvertedBanner
+import com.wsturgiss.dnd.ui.Pilcrow
+import com.wsturgiss.dnd.ui.CRIT_REACH
+import com.wsturgiss.dnd.ui.critBurst
 import com.wsturgiss.dnd.ui.GUTTER
+import com.wsturgiss.dnd.ui.PAD_GUTTER
 import com.wsturgiss.dnd.ui.KeyValueRow
 import com.wsturgiss.dnd.ui.Page
 import com.wsturgiss.dnd.ui.ScrollPage
@@ -138,11 +145,12 @@ class RollScreen(
             onBack = { goBack(null) },
             action = LightBarButton.LightIcon(LightIcons.LIST, onClick = { navigateTo(screenFactory = { LogScreen(it) }) }),
             bottom = LightBarButton.Icon(d20Icon(), onClick = ::rollNow, contentDescription = "Roll"),
+            folio = "4r",
         ) {
             Column(
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = GUTTER.gridUnitsAsDp()),
+                    .padding(horizontal = PAD_GUTTER.gridUnitsAsDp()),
             ) {
                 ResultArea(Modifier.weight(1f))
                 Builder()
@@ -161,8 +169,7 @@ class RollScreen(
                 return@Column
             }
             val stage = lastRoll?.let(::stageDice)
-            // what was rolled, always in the same place: top centre
-            T(r.label, Style.Small, dim = true, maxLines = 1)
+            CritSlot(r, thrown = stage != null && camera != DiceCamera.Off)
             if (imposed.isNotEmpty()) {
                 val why = "disadvantage: ${imposed.joinToString(", ")}"
                 T(if (edge == Edge.Advantage) "$why, cancelled by ADV" else why, Style.Small, maxLines = 2, align = TextAlign.Center)
@@ -179,11 +186,10 @@ class RollScreen(
                 return@Column
             }
             T(r.total.toString(), Style.Total)
-            val tag = when {
-                r.natural == 20 -> "NATURAL 20"
-                r.natural == 1 -> "NATURAL 1"
-                r.edge == Edge.Advantage -> "advantage"
-                r.edge == Edge.Disadvantage -> "disadvantage"
+            // a natural 20 or 1 is the banner above; here, only the edge
+            val tag = when (r.edge) {
+                Edge.Advantage -> "advantage"
+                Edge.Disadvantage -> "disadvantage"
                 else -> ""
             }
             // What you rolled and what was added: big enough to check at arm's length.
@@ -209,8 +215,10 @@ class RollScreen(
         val mod = roll.parts.sumOf { p -> (p.term as? DiceExpr.Flat)?.let { it.value * it.sign } ?: 0 }
         val counted = dice.count { !it.dim }
         val arithmetic = mod != 0 || counted > 1
-        val tag = if (r.natural == 20 || r.natural == 1) "NATURAL ${r.natural}" else null
+        val crit = crit(r)
         val gap = 1f.gridUnitsAsDp()
+        val ink = LightThemeTokens.colors.content
+        val dim = LightThemeTokens.colors.contentSecondary
         SubcomposeLayout(stageModifier.fillMaxWidth()) { cs ->
             val maxW = cs.maxWidth
             val maxH = cs.maxHeight
@@ -227,11 +235,15 @@ class RollScreen(
                             T(r.total.toString(), Style.Total)
                         }
                     }
-                    if (tag != null) T(tag, Style.Mono, modifier = shown)
                 }
             }.single().measure(Constraints(maxWidth = maxW / 2, maxHeight = maxH))
-            // nothing beside the dice (a lone die, no modifier): no gap, so the dice sit dead centre
-            val gapPx = if (text.width == 0) 0 else gap.roundToPx()
+            // nothing beside the dice (a lone die, no modifier): no gap, so the dice sit dead centre.
+            // A crit's rays reach between the dice and the sum, so it gets room for them as well.
+            val gapPx = when {
+                text.width == 0 -> 0
+                crit != null -> CRIT_REACH.toInt() + gap.roundToPx()
+                else -> gap.roundToPx()
+            }
             val room = maxW - text.width - gapPx
             val groupW = DiceClips.placement(dice.size, camera, room, maxH, room).groupWidth
             val landEnd = (maxW - groupW - gapPx - text.width) / 2 + groupW
@@ -241,8 +253,28 @@ class RollScreen(
                     if (id == rollId) landed = true
                 }
             }.single().measure(Constraints.fixed(maxW, maxH))
+            val burst = if (crit != null && landed) {
+                val p = DiceClips.placement(dice.size, camera, room, maxH, landEnd)
+                val halfW = p.groupWidth / 2f
+                val halfH = DiceClips.art.landedHalf * p.scale.toFloat()
+                subcompose("burst") {
+                    Canvas(Modifier.fillMaxSize()) {
+                        critBurst(
+                            crit,
+                            centre = Offset(landEnd - halfW, p.groupMidY.toFloat()),
+                            halfW = halfW,
+                            halfH = halfH,
+                            scale = minOf(1f, halfH / 108f),
+                            stroke = 2f * p.scale,
+                            ink = ink,
+                            dim = dim,
+                        )
+                    }
+                }.single().measure(Constraints.fixed(maxW, maxH))
+            } else null
             layout(maxW, maxH) {
                 stage.place(0, 0)
+                burst?.place(0, 0)
                 // level with the middle of the landed dice
                 text.place(landEnd + gapPx, (midY - text.height / 2).coerceIn(0, maxOf(0, maxH - text.height)))
             }
@@ -317,7 +349,25 @@ class RollScreen(
             },
             Style.MonoBig,
         )
-        if (kept == 20 || kept == 1) T("NATURAL $kept", Style.Mono)
+    }
+
+    /** A natural 20 or 1 on a lone d20, or null. */
+    private fun crit(r: LoggedRoll): Int? = r.natural?.takeIf { it == 20 || it == 1 }
+
+    /**
+     * What was rolled, always in the same place, top centre: "¶ Stealth". Over it, on a natural 20
+     * or 1, an inverted banner — the folio's crit — that appears once any dice thrown land. Its
+     * room is kept from the start of a crit roll, so nothing moves when it appears.
+     */
+    @Composable
+    private fun CritSlot(r: LoggedRoll, thrown: Boolean) {
+        val crit = crit(r)
+        if (crit != null) {
+            // unthrown, the result is there at once; thrown, it waits for the dice
+            val show = landed || !thrown
+            InvertedBanner("Natural", crit.toString(), Modifier.padding(bottom = 0.2f.gridUnitsAsDp()).alpha(if (show) 1f else 0f))
+        }
+        Pilcrow(r.label)
     }
 
     @Composable
@@ -350,7 +400,8 @@ class RollScreen(
 
     @Composable
     private fun Pad() {
-        val gap = Arrangement.spacedBy(0.4f.gridUnitsAsDp())
+        DottedRule(Modifier.padding(bottom = 0.3f.gridUnitsAsDp()))
+        val gap = Arrangement.spacedBy(0.3f.gridUnitsAsDp())
         // two rows of six rather than three of four: the row saved goes to the dice
         Row(Modifier.fillMaxWidth(), horizontalArrangement = gap) {
             listOf("d4", "d6", "d8", "d10", "d12", "d20").forEach { d -> PadKey(d, Modifier.weight(1f)) { add("+$d") } }
